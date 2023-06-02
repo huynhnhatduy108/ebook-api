@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from routes.user import user as user_router
 from routes.auth import auth as auth_router
+from routes.ebook import ebook as ebook_router
 from starlette.middleware.cors import CORSMiddleware
 
 app = FastAPI(
@@ -19,3 +20,4 @@ app.add_middleware(
 
 app.include_router(auth_router, tags=["A. Auth"], prefix="/auth")
 app.include_router(user_router, tags=["B. Users"], prefix="/user")
+app.include_router(ebook_router, tags=["C. Ebooks"], prefix="/ebook")

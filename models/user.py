@@ -12,11 +12,11 @@ class User(BaseModel):
     password:str
     role:int
     avatar_url:str
-    deleted_flag :bool
-    created_at: datetime = datetime.now()
-    updated_at: datetime = datetime.now()
+    deleted_flag :bool = False
+    created_at: str = datetime.now().strftime("%Y-%m-%d %X")
+    updated_at: str = datetime.now().strftime("%Y-%m-%d %X")
 
     @root_validator
     def number_validator(cls, values):
-        values["updated_at"] = datetime.now()
+        values["updated_at"] = datetime.now().strftime("%Y-%m-%d %X")
         return values

@@ -30,7 +30,7 @@ class UserRegisterDto(BaseModel):
     email:str
     full_name:str
     password:str
-    role: int=0
+    role: int=1
 
 class UserLoginDto(BaseModel):
     username :str
