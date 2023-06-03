@@ -8,14 +8,13 @@ from fastapi.responses import JSONResponse
 
 auth = APIRouter() 
 
-
 @auth.get(
     path='/profile_user/{id}',
     name="Porfile User",
     description="Get profile user",
 )
 async def profile_user(id:str,auth: dict = Depends(validate_token)):
-    user = client.user.find_one({"_id":ObjectId(id)},{ "password":0})
+    user = client.user.find_one({"_id":ObjectId(id)},{ "password":0,"deleted_flag":0})
     user = serializeDict(user)
     return JSONResponse(content=user, status_code=200)
 

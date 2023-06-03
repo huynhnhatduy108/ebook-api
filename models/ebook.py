@@ -32,6 +32,9 @@ class EbookView(BaseModel):
     ebook: str
     view: int 
 
+class EbookDownload(BaseModel):
+    ebook: str
+    num_download: int 
 
 class EbookRate(BaseModel):
     ebook_id: str

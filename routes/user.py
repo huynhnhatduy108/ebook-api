@@ -25,7 +25,7 @@ async def list_users(auth: dict = Depends(validate_token), model:UserQueryParams
         if model.role:
             query["role"] = 0
 
-    users = client.user.find(query,{"password":0})
+    users = client.user.find(query,{"password":0},{"deleted_flag":0})
     users = users.skip(skip).limit(page_size)
     total_record = client.user.count_documents(query)
 
