@@ -3,7 +3,7 @@ from functions.auth import generate_token, validate_token
 from functions.function import gen_slug_radom_string
 from models.category import Category
 from config.db import client
-from schemas.category import CategoryQueryParams, serializeDict, serializeList
+from schemas.category import CategoryQueryParams
 from bson import ObjectId
 from fastapi.responses import JSONResponse
 from pymongo import ReturnDocument
@@ -16,33 +16,69 @@ category = APIRouter()
     description="Get list category",
 )
 async def list_categories(param:CategoryQueryParams = Depends()):
-    query = {}
+    match_condition = {"$and":[]}
     page = param.page
     page_size = param.page_size
     skip = page * page_size - page_size;
 
     if "keyword" in dict(param):
         if param.keyword:
-            query["$or"] = [{"name":{"$regex" : param.keyword, '$options': 'i'}},
-                            {"name_en":{"$regex" : param.keyword, '$options': 'i'}},
-                            ]
-    if "post" in dict(param):
-        if param.post:
-            post = param.post.split(",")
-            query["categories"] ={"$in":post}
-        
-    if "ebook" in dict(param):
-        if param.ebook:
-            ebook = param.ebook.split(",")
-            query["categories"] ={"$in":ebook}
+            keyword_scope = {
+                                "$or":[
+                                        {"name":{"$regex" : param.keyword, '$options': 'i'}},
+                                        {"description":{"$regex" : param.keyword, '$options': 'i'}},
+                                      ]       
+                            }
+            
+            match_condition["$and"].append(keyword_scope)
 
-    category = client.category.find(query,{"deleted_flag":0})
-    category = category.skip(skip).limit(page_size)
-    total_record = client.category.count_documents(query)
+    if "posts" in dict(param):
+        if param.posts:
+            cates_scope = {"categories._id":{"$in":param.posts} }
+            match_condition["$and"].append(cates_scope)
 
-    category = serializeList(category)
+    if "ebooks" in dict(param):
+        if param.ebooks:
+            cates_scope = {"tags":{"$in":param.ebooks} }
+            match_condition["$and"].append(cates_scope)
+
+    pipline=[
+                {
+                    "$match": match_condition if match_condition["$and"] else {}
+                },
+                 {
+                    "$addFields": {
+                        "_id": { "$toString": "$_id" },
+                        "count.ebooks": { "$size": "$ebooks" },
+                        "count.posts": { "$size": "$posts" }
+                    }
+                },
+                 {
+                    "$project": {
+                        "deleted_flag": 0,
+                        "ebooks":0,
+                        "posts":0,
+                    }
+                },
+                {
+                    "$facet": {
+                        "data": [{"$skip": skip},{"$limit": page_size}],
+                        "count": [{"$count": "total_record"}]
+                    }
+                },
+            ]
+    
+
+    result = client.category.aggregate(pipline)
+    result = list(result)
+
+    items = result[0]["data"]
+    total_record = 0
+    if result[0]["data"]:
+        total_record = result[0]["count"][0]["total_record"]
+    
     data ={
-        "items": category,
+        "items": items,
         "page":page,
         "page_size":page_size,
         "total_record":total_record
@@ -56,13 +92,21 @@ async def list_categories(param:CategoryQueryParams = Depends()):
     description="Info category by id",
 )
 async def info_category_by_id(id:str):
-    category = client.category.find_one({"_id":ObjectId(id)},{"deleted_flag":0})
+    category = client.category.find_one({"_id":ObjectId(id)},
+                                         { "_id": { "$toString": "$_id" },
+                                           "name":1, 
+                                           "name_en":1, 
+                                           "thumbnail":1, 
+                                           "description":1,
+                                           "count.ebooks": { "$size": "$ebooks" },
+                                           "count.posts": { "$size": "$posts" },
+                                           "created_at": 1,
+                                           "updated_at":1
+                                           })
 
     if not category:
         raise HTTPException(404, detail="Category not found!")
     
-    category = serializeDict(category)
-
     return category
 
  
@@ -92,7 +136,7 @@ async def update_category(id, category: Category, auth: dict = Depends(validate_
 
     category_exist = client.category.find_one({"_id":ObjectId(id)})
     if not category_exist:
-        raise HTTPException(404, detail="category not found!")
+        raise HTTPException(404, detail="Category not found!")
     
     category= category.dict()
     const = client.category.find_one_and_update({"_id":ObjectId(id)},{
@@ -109,11 +153,21 @@ async def update_category(id, category: Category, auth: dict = Depends(validate_
     description="Delete category",
 )
 async def delete_category(id, auth: dict = Depends(validate_token)):
-    category = client.category.find_one({"_id":ObjectId(id)})
-    if not category:
-        raise HTTPException(404, detail="category not found!")
-    
+
     # if auth["role"] !=1:
     #     raise HTTPException(403, detail="No permission!")
+
+    category = client.category.find_one({"_id":ObjectId(id)})
+    if not category:
+        raise HTTPException(404, detail="Category not found!")
+    
+    if len(category["ebooks"]):
+        client.ebook.update_many({"_id": {"$in": category["ebooks"]}},
+                                 {"$pull": {"categories": ObjectId(id)}})
+        
+    if len(category["posts"]):
+        client.post.update_many({"_id": {"$in": category["posts"]}},
+                                {"$pull": {"categories": ObjectId(id)}})
+    
     client.category.find_one_and_delete({"_id":ObjectId(id)})
     return JSONResponse(content={"message":"Delete success"}, status_code=200)

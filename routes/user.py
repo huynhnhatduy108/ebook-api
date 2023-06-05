@@ -13,25 +13,68 @@ user = APIRouter()
     name="List users",
     description="Get list info user",
 )
-async def list_users(auth: dict = Depends(validate_token), model:UserQueryParams = Depends()):
-    query = {}
-    page = model.page
-    page_size = model.page_size
+async def list_users(param:UserQueryParams = Depends(), auth: dict = Depends(validate_token)):
+    match_condition = {"$and":[]}
+    page = param.page
+    page_size = param.page_size
     skip = page * page_size - page_size;
-    if "keyword" in dict(model):
-        if model.keyword:
-            query["$or"] = [{"username":{"$regex" : model.keyword, '$options': 'i'}},{"email":{"$regex" : model.keyword, '$options': 'i'}}]
-    if "role" in dict(model):
-        if model.role:
-            query["role"] = 0
 
-    users = client.user.find(query,{"password":0},{"deleted_flag":0})
-    users = users.skip(skip).limit(page_size)
-    total_record = client.user.count_documents(query)
+    if "keyword" in dict(param):
+        if param.keyword:
+            keyword_scope = {
+                                "$or":[
+                                        {"username":{"$regex" : param.keyword, '$options': 'i'}},
+                                        {"email":{"$regex" : param.keyword, '$options': 'i'}},
+                                      ]       
+                            }
+            
+            match_condition["$and"].append(keyword_scope)
 
-    users = serializeList(users)
+    if "role" in dict(param):
+        if param.role:
+            cates_scope = {"role":param.role }
+            match_condition["$and"].append(cates_scope)
+
+    if "provider" in dict(param):
+        if param.provider:
+            cates_scope = {"provider":param.provider}
+            match_condition["$and"].append(cates_scope)
+
+    pipline=[
+                {
+                    "$match": match_condition if match_condition["$and"] else {}
+                },
+                {
+                    "$addFields": {
+                        "_id": { "$toString": "$_id" },
+                        }
+                },
+                {
+                    "$project": {
+                        "deleted_flag": 0 ,
+                        "password":0,
+                    }
+                },
+                {
+                    "$facet": {
+                        "data": [{"$skip": skip},{"$limit": page_size}],
+                        "count": [{"$count": "total_record"}]
+                    }
+                },
+            ]
+
+    result = client.user.aggregate(pipline)
+    result = list(result)
+
+    items = result[0]["data"]
+
+    # print("items==>", items)
+    total_record = 0
+    if result[0]["data"]:
+        total_record = result[0]["count"][0]["total_record"]
+
     data ={
-        "items": users,
+        "items": items,
         "page":page,
         "page_size":page_size,
         "total_record":total_record

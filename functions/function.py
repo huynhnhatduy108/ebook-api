@@ -28,7 +28,9 @@ def gen_random_string(length = 5):
 def gen_slug_radom_string(text, length = 5 ):
     string_slug = slugify(text)
     string_code = ''.join((random.choice(string.ascii_lowercase + string.digits) for x in range(length)))
-    return string_slug + "-" + string_code
+    if length !=0:
+        return string_slug + "-" + string_code
+    return string_slug
 
 def now():
     return datetime.now()
@@ -45,13 +47,13 @@ def compare_old_to_new_list(new_list=[] , old_list =[]):
     old_list = set([str(i) for i in old_list])
     try:
         if new_list == old_list:
-            return [], []
+            return True,[], []
         else:
             list_add = list(new_list.difference(old_list))
             list_detele = list(old_list.difference(new_list))
-            return list_add, list_detele
+            return False,list_add, list_detele
     except Exception as e:
-        return [],[]  
+        return True,[],[]  
      
 
 def convert_to_dict(string, default={}):

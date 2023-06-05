@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 
-
 def userEntity(item) -> dict:
     return {
         "id":str(item["_id"]),
@@ -22,16 +21,7 @@ def serializeList(entity) -> list:
 class UserQueryParams(BaseModel):
     keyword: str=None
     role: int=None
+    provider: str = ""
     page: int= 1
     page_size: int = 10
 
-class UserRegisterDto(BaseModel):
-    username :str
-    email:str
-    full_name:str
-    password:str
-    role: int=1
-
-class UserLoginDto(BaseModel):
-    username :str
-    password:str
