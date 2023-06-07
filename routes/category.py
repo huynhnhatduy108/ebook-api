@@ -17,6 +17,7 @@ category = APIRouter()
 )
 async def list_categories(param:CategoryQueryParams = Depends()):
     match_condition = {"$and":[]}
+    sort_condition ={}
     page = param.page
     page_size = param.page_size
     skip = page * page_size - page_size;
@@ -42,6 +43,9 @@ async def list_categories(param:CategoryQueryParams = Depends()):
             cates_scope = {"tags":{"$in":param.ebooks} }
             match_condition["$and"].append(cates_scope)
 
+    if "ordering" in dict(param):
+        sort_condition=param.ordering
+
     pipline=[
                 {
                     "$match": match_condition if match_condition["$and"] else {}
@@ -59,6 +63,9 @@ async def list_categories(param:CategoryQueryParams = Depends()):
                         "ebooks":0,
                         "posts":0,
                     }
+                },
+                 {
+                    "$sort":sort_condition
                 },
                 {
                     "$facet": {

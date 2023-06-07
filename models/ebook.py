@@ -59,6 +59,13 @@ class EbookRate(BaseModel):
         if value and isinstance(value, str):
             return ObjectId(value)
         return value
+    
+    @validator("rate", pre=False)
+    def rate_range(cls, value):
+        if value<=5 and value>0:
+            return value
+        raise  ValueError("rate must be in range 1 to 5")
+
 
 
     @root_validator
@@ -66,37 +73,6 @@ class EbookRate(BaseModel):
         values["updated_at"] = datetime.now().strftime("%Y-%m-%d %X")
         return values
     
-    def dict(self, **kwargs):
-        data = super().dict(**kwargs)
-        return data
-
-
-class EbookComment(BaseModel):
-    ebook_id: str = ""
-    parent_id:str = ""
-    content:str = ""
-
-    deleted_flag :bool = False
-    created_at: str = datetime.now().strftime("%Y-%m-%d %X")
-    updated_at: str = datetime.now().strftime("%Y-%m-%d %X")
-
-    @validator("ebook_id", pre=False)
-    def ebook_id_convert_object_id(cls, value):
-        if value and isinstance(value, str):
-            return ObjectId(value)
-        return value
-    
-    @validator("parent_id", pre=False)
-    def parent_id_convert_object_id(cls, value):
-        if value and isinstance(value, str):
-            return ObjectId(value)
-        return value
-
-    @root_validator
-    def number_validator(cls, values):
-        values["updated_at"] = datetime.now().strftime("%Y-%m-%d %X")
-        return values
-
     def dict(self, **kwargs):
         data = super().dict(**kwargs)
         return data

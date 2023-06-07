@@ -17,6 +17,7 @@ post = APIRouter()
 )
 async def list_posts(param:PostQueryParams = Depends()):
     match_condition = {"$and":[]}
+    sort_condition = {}
     page = param.page
     page_size = param.page_size
     skip = page * page_size - page_size;
@@ -41,6 +42,9 @@ async def list_posts(param:PostQueryParams = Depends()):
         if param.tags:
             cates_scope = {"tags":{"$in":param.tags} }
             match_condition["$and"].append(cates_scope)
+    
+    if "ordering" in dict(param):
+        sort_condition=param.ordering
 
     pipline= [
                 {
@@ -51,14 +55,6 @@ async def list_posts(param:PostQueryParams = Depends()):
                         "as": "categories"
                     }
                 },
-                # {
-                #     "$lookup": {
-                #         "from": "user",
-                #         "localField": "created_by",
-                #         "foreignField": "_id",
-                #         "as": "created_by"
-                #     }
-                # },
                 {
                     "$lookup": {
                         "from": "post_view",
@@ -95,6 +91,9 @@ async def list_posts(param:PostQueryParams = Depends()):
                         "updated_by":0,
                         "ebook_id":0,
                     }
+                },
+                {
+                    "$sort":sort_condition
                 },
                 {
                     "$facet": {

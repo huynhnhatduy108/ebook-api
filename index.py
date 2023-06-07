@@ -7,6 +7,7 @@ from routes.auth import auth as auth_router
 from routes.ebook import ebook as ebook_router
 from routes.category import category as category_router
 from routes.post import post as post_router
+from routes.comment import comment as comment_router
 from starlette.middleware.cors import CORSMiddleware
 
 app = FastAPI(
@@ -28,3 +29,4 @@ app.include_router(user_router, tags=["B. Users"], prefix="/user")
 app.include_router(category_router, tags=["C. Category"], prefix="/category")
 app.include_router(ebook_router, tags=["D. Ebook"], prefix="/ebook")
 app.include_router(post_router, tags=["E. Post"], prefix="/post")
+app.include_router(comment_router, tags=["F. Comment"], prefix="/comment")

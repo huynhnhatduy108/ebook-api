@@ -72,3 +72,12 @@ def is_email_valid(email):
         return True
     else:
         return False
+
+def string_to_ordering(ordering):
+    ordering_dict = {}
+    for field in ordering.split(","):
+        if field.startswith("-"):
+            ordering_dict[field[1:]] = -1
+        else:
+            ordering_dict[field] = 1
+    return ordering_dict

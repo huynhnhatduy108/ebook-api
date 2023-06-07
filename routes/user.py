@@ -40,6 +40,9 @@ async def list_users(param:UserQueryParams = Depends(), auth: dict = Depends(val
             cates_scope = {"provider":param.provider}
             match_condition["$and"].append(cates_scope)
 
+    if "ordering" in dict(param):
+        sort_condition=param.ordering
+
     pipline=[
                 {
                     "$match": match_condition if match_condition["$and"] else {}
@@ -55,6 +58,9 @@ async def list_users(param:UserQueryParams = Depends(), auth: dict = Depends(val
                         "password":0,
                     }
                 },
+                 {
+                    "$sort":sort_condition
+                },
                 {
                     "$facet": {
                         "data": [{"$skip": skip},{"$limit": page_size}],
@@ -68,7 +74,6 @@ async def list_users(param:UserQueryParams = Depends(), auth: dict = Depends(val
 
     items = result[0]["data"]
 
-    # print("items==>", items)
     total_record = 0
     if result[0]["data"]:
         total_record = result[0]["count"][0]["total_record"]

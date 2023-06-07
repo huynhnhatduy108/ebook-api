@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
-from config.constant import LOCAL_PROVIDER
+from config.constant import DEFAULT_AVATAR_MAN, LOCAL_PROVIDER
 from functions.auth import generate_token, validate_token
 from config.db import client
-from schemas.auth import UserRegisterDto, UserLoginDto
+from schemas.auth import FacabookLogin, GoogleLogin, UserRegisterDto, UserLoginDto
 from bson import ObjectId
 from functions.function import check_match_password, gen_hash_password
 from fastapi.responses import JSONResponse
@@ -64,8 +64,87 @@ async def login_user(user: UserLoginDto):
     data ={
         "_id":str(user_exist["_id"]),
         "username":user_exist["username"],
+        "full_name":user_exist["full_name"],
+        "avatar_url":user_exist.get("avatar_url", DEFAULT_AVATAR_MAN),
         "email":user_exist["email"],
         "provider": user_exist.get("provider", LOCAL_PROVIDER),
         "access_token":generate_token(str(user_exist["_id"]))
     }
+    return JSONResponse(content=data, status_code=200)
+
+
+@auth.post(
+    path='/google_login',
+    name="Google Login",
+    description="Google login",
+)
+async def google_login(user: GoogleLogin):
+    
+    user_exist = client.user.find_one({
+        "$or": [
+            { "username": user.username } ,
+            { "email":  user.username } 
+        ]
+    })
+    if not user_exist: 
+        user = user.dict()
+        user_create = client.user.insert_one(user)
+        data = {
+            "_id":str(user_create.inserted_id),
+            "username":user["username"],
+            "email":user["email"],
+            "avatar_url":user["avatar_url"],
+            "provider": user["provider"],
+            "access_token":generate_token(str(user_create.inserted_id))
+        }
+
+        return JSONResponse(content=user, status_code=200)
+
+    data ={
+        "_id":str(user_exist["_id"]),
+        "username":user_exist["username"],
+        "email":user_exist["email"],
+        "avatar_url":user_exist.get("avatar_url", DEFAULT_AVATAR_MAN),
+        "provider": user_exist.get("provider", LOCAL_PROVIDER),
+        "access_token":generate_token(str(user_exist["_id"]))
+    }
+    return JSONResponse(content=data, status_code=200)
+
+
+@auth.post(
+    path='/facebook_login',
+    name="Facebook Login",
+    description="Facebook login",
+)
+async def facebook_login(user: FacabookLogin):
+    
+    user_exist = client.user.find_one({
+        "$or": [
+            { "username": user.username } ,
+            { "email":  user.username } 
+        ]
+    })
+    if not user_exist: 
+        user = user.dict()
+        user_create = client.user.insert_one(user)
+        data = {
+            "_id":str(user_create.inserted_id),
+            "username":user["username"],
+            "email":user["email"],
+            "avatar_url":user["avatar_url"],
+            "provider": user["provider"],
+            "access_token":generate_token(str(user_create.inserted_id))
+        }
+
+        return JSONResponse(content=user, status_code=200)
+
+    data ={
+        "_id":str(user_exist["_id"]),
+        "username":user_exist["username"],
+        "email":user_exist["email"],
+        "avatar_url":user_exist.get("avatar_url", DEFAULT_AVATAR_MAN),
+        "provider": user_exist.get("provider", LOCAL_PROVIDER),
+        "access_token":generate_token(str(user_exist["_id"]))
+    }
+    
     return JSONResponse(content=data, status_code=200)

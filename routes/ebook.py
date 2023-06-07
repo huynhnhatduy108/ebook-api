@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from functions.auth import generate_token, validate_token
 from functions.function import compare_old_to_new_list, gen_slug_radom_string
-from models.ebook import Ebook, EbookComment
+from models.ebook import Ebook, EbookRate
 from config.db import client
 from schemas.ebook import EbookQueryParams, serializeDict, serializeList
 from bson import ObjectId
@@ -9,6 +9,122 @@ from fastapi.responses import JSONResponse
 from pymongo import ReturnDocument, UpdateOne
 
 ebook = APIRouter() 
+
+def get_ebook_by_id_or_slug(match={}):
+    ebooks = client.ebook.aggregate([
+                {
+                    "$lookup": {
+                        "from": "category",
+                        "localField": "categories",
+                        "foreignField": "_id",
+                        "as": "categories"
+                    }
+                },
+                {
+                    "$lookup": {
+                        "from": "user",
+                        "localField": "created_by",
+                        "foreignField": "_id",
+                        "as": "created_by"
+                    }
+                },
+                {
+                    "$lookup": {
+                        "from": "ebook_view",
+                        "localField": "_id",
+                        "foreignField": "ebook_id",
+                        "as": "views"
+                    }
+                },
+                {
+                    "$lookup": {
+                        "from": "ebook_rate",
+                        "localField": "_id",
+                        "foreignField": "ebook_id",
+                        "as": "ebook_rate"
+                    }
+                },
+                 {
+                    "$match": match
+                },
+                {
+                    "$addFields": {
+                        "_id": { "$toString": "$_id" },
+                        "categories": {
+                            "$map": {
+                                "input": "$categories",
+                                "as": "category",
+                                "in": {
+                                    "_id": { "$toString": "$$category._id" },
+                                    "name": "$$category.name",
+                                    "name_en": "$$category.name_en",
+                                    "description": "$$category.description"
+                                }
+                            }
+                        },
+                        "views": { "$arrayElemAt": ["$views.views", 0] },
+                        "admin":{
+                            "username": { "$arrayElemAt": ["$created_by.username", 0] },
+                            "full_name": { "$arrayElemAt": ["$created_by.full_name", 0] },
+                        },
+                        "rate.average": { 
+                                '$cond': {
+                                    'if': { '$eq': [{"$avg": "$ebook_rate.rate"}, None] },
+                                    'then': 0,
+                                    'else': {"$avg": "$ebook_rate.rate"},
+                                },
+                        },
+                        "rate.size": { "$size": "$ebook_rate" },
+                    }
+                },
+                {
+                    "$project": {
+                        "deleted_flag": 0,
+                        "created_by":0,
+                        "updated_by":0,
+                        "ebook_rate":0
+                    }
+                }
+            ])
+    
+    ebook = next(ebooks, None)
+
+    if not ebook:
+        raise HTTPException(404, detail="Ebook not found!")
+    
+    comments = client.ebook_comment.aggregate([
+                {
+                    "$lookup": {
+                        "from": "user",
+                        "localField": "user_id",
+                        "foreignField": "_id",
+                        "as": "user"
+                    }
+                },
+                 {
+                    "$match": match
+                },
+                {
+                    "$addFields": {
+                        "_id": { "$toString": "$_id" },
+                        "user_comment":{
+                            "username": { "$arrayElemAt": ["$user.username", 0] },
+                            "full_name": { "$arrayElemAt": ["$user.full_name", 0] },
+                        }
+                    }
+                },
+                {
+                    "$project": {
+                        "deleted_flag": 0,
+                        "ebook_id":0,
+                        "user_id":0,
+                        "user":0,
+                    }
+                }
+            ])
+    ebook["comments"]= list(comments)
+
+    return ebook
 
 @ebook.get(
     path='/',
@@ -20,6 +136,7 @@ async def list_ebooks(param:EbookQueryParams = Depends()):
     page = param.page
     page_size = param.page_size
     skip = page * page_size - page_size;
+    sort_condition = {}
 
     if "keyword" in dict(param):
         if param.keyword:
@@ -44,15 +161,18 @@ async def list_ebooks(param:EbookQueryParams = Depends()):
             cates_scope = {"tags":{"$in":param.tags} }
             match_condition["$and"].append(cates_scope)
 
+    if "ordering" in dict(param):
+        sort_condition=param.ordering
+
     pipline=[
-                {
-                    "$lookup": {
-                        "from": "category",
-                        "localField": "categories",
-                        "foreignField": "_id",
-                        "as": "categories"
-                    }
-                },
+                # {
+                #     "$lookup": {
+                #         "from": "category",
+                #         "localField": "categories",
+                #         "foreignField": "_id",
+                #         "as": "categories"
+                #     }
+                # },
                 {
                     "$lookup": {
                         "from": "ebook_view",
@@ -61,33 +181,70 @@ async def list_ebooks(param:EbookQueryParams = Depends()):
                         "as": "views"
                     }
                 },
+                 {
+                    "$lookup": {
+                        "from": "ebook_download",
+                        "localField": "_id",
+                        "foreignField": "ebook_id",
+                        "as": "downloads"
+                    }
+                },
+                {
+                    "$lookup": {
+                        "from": "ebook_rate",
+                        "localField": "_id",
+                        "foreignField": "ebook_id",
+                        "as": "ebook_rate"
+                    }
+                },
                 {
                     "$match": match_condition if match_condition["$and"] else {}
                 },
                 {
                     "$addFields": {
                         "_id": { "$toString": "$_id" },
-                        "categories": {
-                            "$map": {
-                                "input": "$categories",
-                                "as": "category",
-                                "in": {
-                                    "_id": { "$toString": "$$category._id" },
-                                    "name": "$$category.name",
-                                    "name_en": "$$category.name_en",
-                                    "description": "$$category.description"
-                                }
-                            }
-                        },
                         "views": { "$arrayElemAt": ["$views.views", 0] },
+                        "downloads__": { "$arrayElemAt": ["$downloads.downloads", 0] },
+                        "rate.average": { 
+                                '$cond': {
+                                    'if': { '$eq': [{"$avg": "$ebook_rate.rate"}, None] },
+                                    'then': 0,
+                                    'else': {"$avg": "$ebook_rate.rate"},
+                                },
+                        },
+                        "rate.size": { "$size": "$ebook_rate" },
+                         # "categories": {
+                        #     "$map": {
+                        #         "input": "$categories",
+                        #         "as": "category",
+                        #         "in": {
+                        #             "_id": { "$toString": "$$category._id" },
+                        #             "name": "$$category.name",
+                        #             "name_en": "$$category.name_en",
+                        #             "description": "$$category.description"
+                        #         }
+                        #     }
+                        # },
                     }
                 },
                 {
                     "$project": {
-                        "deleted_flag": 0,
-                        "created_by":0,
-                        "updated_by":0,
+                        "_id":1, 
+                        "views":1,
+                        "rate":1,
+                        "name":1,
+                        # "downloads":0
+                        # "deleted_flag": 0,
+                        # "tags":0,
+                        # "categories":0,
+                        # "created_by":0,
+                        # "updated_by":0,
+                        # "ebook_rate":0,
+                        # "content":0
                     }
+                },
+                 {
+                    "$sort":sort_condition
                 },
                 {
                     "$facet": {
@@ -102,7 +259,7 @@ async def list_ebooks(param:EbookQueryParams = Depends()):
 
     items = result[0]["data"]
 
-    # print("items==>", items)
+    print("items==>", items)
     total_record = 0
     if result[0]["data"]:
         total_record = result[0]["count"][0]["total_record"]
@@ -122,76 +279,10 @@ async def list_ebooks(param:EbookQueryParams = Depends()):
     description="Info ebook by id",
 )
 async def info_ebook_by_id(id:str):
-    
-    ebooks = client.ebook.aggregate([
-                {
-                    "$lookup": {
-                        "from": "category",
-                        "localField": "categories",
-                        "foreignField": "_id",
-                        "as": "categories"
-                    }
-                },
-                {
-                    "$lookup": {
-                        "from": "user",
-                        "localField": "created_by",
-                        "foreignField": "_id",
-                        "as": "created_by"
-                    }
-                },
-                {
-                    "$lookup": {
-                        "from": "ebook_view",
-                        "localField": "_id",
-                        "foreignField": "ebook_id",
-                        "as": "views"
-                    }
-                },
-                 {
-                    "$match": {
-                        "_id": ObjectId(id)
-                    }
-                },
-                {
-                    "$addFields": {
-                        "_id": { "$toString": "$_id" },
-                        "categories": {
-                            "$map": {
-                                "input": "$categories",
-                                "as": "category",
-                                "in": {
-                                    "_id": { "$toString": "$$category._id" },
-                                    "name": "$$category.name",
-                                    "name_en": "$$category.name_en",
-                                    "description": "$$category.description"
-                                }
-                            }
-                        },
-                        "views": { "$arrayElemAt": ["$views.views", 0] },
-                        "admin":{
-                            "username": { "$arrayElemAt": ["$created_by.username", 0] },
-                            "full_name": { "$arrayElemAt": ["$created_by.full_name", 0] },
-                        }
-                    }
-                },
-                {
-                    "$project": {
-                        "deleted_flag": 0,
-                        "created_by":0,
-                        "updated_by":0,
-                    }
-                }
-            ])
-    
-    ebook = next(ebooks, None)
-    # print("ebook===>", ebook)
 
-    if not ebook:
-        raise HTTPException(404, detail="Ebook not found!")
+    match = {"_id":ObjectId(id)}
+    ebook = get_ebook_by_id_or_slug(match)
     
-    ebook = serializeDict(ebook)
-
     return ebook
 
 @ebook.get(
@@ -201,73 +292,9 @@ async def info_ebook_by_id(id:str):
 )
 async def info_ebook_by_slug(slug):
 
-    ebooks = client.ebook.aggregate([
-                {
-                    "$lookup": {
-                        "from": "category",
-                        "localField": "categories",
-                        "foreignField": "_id",
-                        "as": "categories"
-                    }
-                },
-                {
-                    "$lookup": {
-                        "from": "user",
-                        "localField": "created_by",
-                        "foreignField": "_id",
-                        "as": "created_by"
-                    }
-                },
-                {
-                    "$lookup": {
-                        "from": "ebook_view",
-                        "localField": "_id",
-                        "foreignField": "ebook_id",
-                        "as": "views"
-                    }
-                },
-                 {
-                    "$match": {
-                        "slug": slug
-                    }
-                },
-                {
-                    "$addFields": {
-                        "_id": { "$toString": "$_id" },
-                        "categories": {
-                            "$map": {
-                                "input": "$categories",
-                                "as": "category",
-                                "in": {
-                                    "_id": { "$toString": "$$category._id" },
-                                    "name": "$$category.name",
-                                    "name_en": "$$category.name_en",
-                                    "description": "$$category.description"
-                                }
-                            }
-                        },
-                        "views": { "$arrayElemAt": ["$views.views", 0] },
-                        "admin":{
-                            "username": { "$arrayElemAt": ["$created_by.username", 0] },
-                            "full_name": { "$arrayElemAt": ["$created_by.full_name", 0] },
-                        }
-                    }
-                },
-                {
-                    "$project": {
-                        "deleted_flag": 0,
-                        "created_by":0,
-                        "updated_by":0,
-                    }
-                }
-            ])
-    
-    ebook = next(ebooks, None)
-    # print("ebook===>", ebook)
-
-    if not ebook:
-        raise HTTPException(404, detail="Ebook not found!")
-    
+    match = {"slug":slug}
+    ebook = get_ebook_by_id_or_slug(match)
+        
     # update view 
     ebook_view = client.ebook_view.find_one_and_update(
         {"ebook_id":ObjectId(ebook["_id"])},
@@ -378,46 +405,49 @@ async def delete_ebook(id, auth: dict = Depends(validate_token)):
     return JSONResponse(content={"message":"Delete success"}, status_code=200)
 
 
+
 @ebook.post(  
-    path='/comment/',
-    name="Comment ebook",
-    description="Comment ebook",
+    path='/rate',
+    name="Rate ebook",
+    description="Rate ebook",
 )
-async def comment_ebook(comment: EbookComment, auth: dict = Depends(validate_token)):
+async def rate_ebook(rate: EbookRate, auth: dict = Depends(validate_token)):
 
-    comment= comment.dict()
-    comment["user_id"] = ObjectId(auth)  
+    rate= rate.dict()
+    rate["user_id"] = ObjectId(auth)  
+    ebook = client.ebook.find_one({"_id":rate["ebook_id"]})
 
-    ebook_comment_create = client.ebook_comment.insert_one(comment)
-
-    comment["_id"] = str(ebook_comment_create.inserted_id)
-    comment["ebook_id"] = str(comment["ebook_id"])
-    del comment["user_id"]
-
-    return comment
-
-
-@ebook.delete(  
-    path='/comment/{comment_id}',
-    name="delete comment ebook",
-    description="delete comment ebook",
-)
-async def detele_comment_ebook(comment_id, auth: dict = Depends(validate_token)):
-    ebook_comment = client.ebook_comment.find_one({"_id":ObjectId(comment_id)})
-
-    if not ebook_comment:
-        raise HTTPException(404, detail="Commnet not found!")
+    if not ebook:
+        raise HTTPException(404, detail="Ebook not found!")
     
-    client.ebook_comment.find_one_and_delete({"_id":ObjectId(comment_id)})
-    return JSONResponse(content={"message":"Delete comment success"}, status_code=200)
+    ebook_rate= client.ebook_rate.insert_one(rate)
 
-@ebook.delete(  
-    path='/delete_all_comment/{ebook_id}',
-    name="delete all comment ebook",
-    description="delete all comment ebook",
+    rate["_id"] = str(ebook_rate.inserted_id)
+    rate["ebook_id"] = str(rate["ebook_id"])
+    del rate["user_id"]
+
+    return rate
+
+@ebook.get(  
+    path='/check_rate/{ebook_id}',
+    name="Rate ebook",
+    description="Rate ebook",
 )
-async def detele_all_comment_ebook(ebook_id, auth: dict = Depends(validate_token)):
+async def check_rate(ebook_id, auth: dict = Depends(validate_token)):
 
-    client.ebook_comment.delete_many({"ebook_id":ObjectId(ebook_id)})
+    ebook = client.ebook.find_one({"_id":ObjectId(ebook_id)})
+
+    if not ebook:
+        raise HTTPException(404, detail="Ebook not found!")
     
-    return JSONResponse(content={"message":"Delete all comment success"}, status_code=200)
+    default_rate={"rate": 0, "_id": None, "is_rate": False}
+    ebook_rate = client.ebook_rate.find_one({"ebook_id": ObjectId(ebook_id), "user_id": ObjectId(auth)},
+                                            {"rate": 1, "_id": {"$toString": "$_id"}})
+    if ebook_rate:
+        ebook_rate["is_rate"] = True
+        return ebook_rate
+
+    return default_rate
+
+
+
