@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
+from config.constant import DASHBOARD
+from crawl.crawl import crawl
 from functions.auth import generate_token, validate_token
 from functions.function import compare_old_to_new_list, gen_slug_radom_string
 from models.ebook import Ebook, EbookRate
@@ -38,6 +40,14 @@ def get_ebook_by_id_or_slug(match={}):
                 },
                 {
                     "$lookup": {
+                        "from": "ebook_download",
+                        "localField": "_id",
+                        "foreignField": "ebook_id",
+                        "as": "ebook_download"
+                    }
+                },
+                {
+                    "$lookup": {
                         "from": "ebook_rate",
                         "localField": "_id",
                         "foreignField": "ebook_id",
@@ -63,6 +73,7 @@ def get_ebook_by_id_or_slug(match={}):
                             }
                         },
                         "views": { "$arrayElemAt": ["$views.views", 0] },
+                        "downloads": { "$arrayElemAt": ["$ebook_download.downloads", 0] },
                         "admin":{
                             "username": { "$arrayElemAt": ["$created_by.username", 0] },
                             "full_name": { "$arrayElemAt": ["$created_by.full_name", 0] },
@@ -82,7 +93,8 @@ def get_ebook_by_id_or_slug(match={}):
                         "deleted_flag": 0,
                         "created_by":0,
                         "updated_by":0,
-                        "ebook_rate":0
+                        "ebook_rate":0,
+                        "ebook_download":0
                     }
                 }
             ])
@@ -204,7 +216,7 @@ async def list_ebooks(param:EbookQueryParams = Depends()):
                     "$addFields": {
                         "_id": { "$toString": "$_id" },
                         "views": { "$arrayElemAt": ["$views.views", 0] },
-                        "downloads__": { "$arrayElemAt": ["$downloads.downloads", 0] },
+                        "downloads": { "$arrayElemAt": ["$downloads.downloads", 0] },
                         "rate.average": { 
                                 '$cond': {
                                     'if': { '$eq': [{"$avg": "$ebook_rate.rate"}, None] },
@@ -233,7 +245,7 @@ async def list_ebooks(param:EbookQueryParams = Depends()):
                         "views":1,
                         "rate":1,
                         "name":1,
-                        # "downloads":0
+                        "downloads":1
                         # "deleted_flag": 0,
                         # "tags":0,
                         # "categories":0,
@@ -259,7 +271,6 @@ async def list_ebooks(param:EbookQueryParams = Depends()):
 
     items = result[0]["data"]
 
-    print("items==>", items)
     total_record = 0
     if result[0]["data"]:
         total_record = result[0]["count"][0]["total_record"]
@@ -448,6 +459,69 @@ async def check_rate(ebook_id, auth: dict = Depends(validate_token)):
         return ebook_rate
 
     return default_rate
+
+@ebook.get(  
+    path='/download/{ebook_id}',
+    name="Download ebook",
+    description="Download ebook",
+)
+async def download_ebook(ebook_id):
+
+    ebook = client.ebook.find_one({"_id":ObjectId(ebook_id)})
+
+    if not ebook:
+        raise HTTPException(404, detail="Ebook not found!")
+    
+    client.dashboard.find_one_and_update({"key":DASHBOARD},{"$inc": {"downloads": 1}},upsert=True)
+
+    return {"message": "Download ebook sucess"}
+
+
+@ebook.get(  
+    path='/read_ebook/{ebook_id}',
+    name="Reads ebook",
+    description="Reads ebook",
+)
+async def reads_ebook(ebook_id):
+
+    ebook = client.ebook.find_one({"_id":ObjectId(ebook_id)})
+
+    if not ebook:
+        raise HTTPException(404, detail="Ebook not found!")
+    
+    client.dashboard.find_one_and_update({"key":DASHBOARD},{"$inc": {"online_reads": 1}},upsert=True)
+
+    return {"message": "Reads ebook online"}
+
+
+@ebook.get(  
+    path='/read_ebook/{ebook_id}',
+    name="Reads ebook",
+    description="Reads ebook",
+)
+async def reads_ebook(ebook_id):
+
+    ebook = client.ebook.find_one({"_id":ObjectId(ebook_id)})
+
+    if not ebook:
+        raise HTTPException(404, detail="Ebook not found!")
+    
+    client.dashboard.find_one_and_update({"key":DASHBOARD},{"$inc": {"online_reads": 1}},upsert=True)
+
+    return {"message": "Reads ebook online"}
+
+
+
+@ebook.get(  
+    path='/craw_data/{ebook_name}',
+    name="Craw data",
+    description="Craw data",
+)
+async def craw_data(ebook_name):
+
+    data = crawl(ebook_name)
+   
+    return data
 
 
 

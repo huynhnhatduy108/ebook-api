@@ -16,6 +16,10 @@ class Ebook(BaseModel):
     categories: list[str] =[]
     img_url:str = ""
     pdf_url : str = ""
+    epub_url:str=""
+    mobi_url:str =""
+    prc_url:str =""
+    azw_url: str =""
 
     deleted_flag :bool = False
     created_at: str = datetime.now().strftime("%Y-%m-%d %X")
