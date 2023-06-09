@@ -1,7 +1,8 @@
 from pymongo import MongoClient
 import certifi
+from constant import DATABASE_URL
 
-cluster = "mongodb+srv://nest:nest@nest-cluster.gapiqqm.mongodb.net/ebook?retryWrites=true&w=majority"
+cluster = DATABASE_URL
 client = MongoClient(cluster, tlsCAFile=certifi.where())
 client= client.ebook
 

@@ -19,3 +19,5 @@ TIKI_API = os.environ.get('TIKI_API',"https://tiki.vn/api/v2/")
 
 SHOPEE_DOMAIN = os.environ.get('SHOPEE_DOMAIN',"https://shopee.vn/")
 SHOPEE_API = os.environ.get('SHOPEE_API')
+
+DATABASE_URL = os.environ.get('DATABASE_URL',"mongodb+srv://nest:nest@nest-cluster.gapiqqm.mongodb.net/ebook?retryWrites=true&w=majority")

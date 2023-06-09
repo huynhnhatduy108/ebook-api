@@ -4,8 +4,8 @@ services:
   app:
     build: .
     container_name: ebook
-    image: ebook-api
-    command: uvicorn main:app --host 0.0.0.0
+    image: ebook-api2
+    # command: uvicorn main:app --host 0.0.0.0
     ports:
       - "8000:8000"
 
