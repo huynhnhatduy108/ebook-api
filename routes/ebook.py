@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from config.constant import DASHBOARD
-from crawl.crawl import crawl
+from crawl.crawl import crawl_data
+from crawl.lazada import lazada_crawl
 from functions.auth import generate_token, validate_token
 from functions.function import compare_old_to_new_list, gen_slug_radom_string
 from models.ebook import Ebook, EbookRate
@@ -479,8 +480,8 @@ async def download_ebook(ebook_id):
 
 @ebook.get(  
     path='/read_ebook/{ebook_id}',
-    name="Reads ebook",
-    description="Reads ebook",
+    name="Reads ebook online",
+    description="Reads ebook online",
 )
 async def reads_ebook(ebook_id):
 
@@ -495,31 +496,13 @@ async def reads_ebook(ebook_id):
 
 
 @ebook.get(  
-    path='/read_ebook/{ebook_id}',
-    name="Reads ebook",
-    description="Reads ebook",
-)
-async def reads_ebook(ebook_id):
-
-    ebook = client.ebook.find_one({"_id":ObjectId(ebook_id)})
-
-    if not ebook:
-        raise HTTPException(404, detail="Ebook not found!")
-    
-    client.dashboard.find_one_and_update({"key":DASHBOARD},{"$inc": {"online_reads": 1}},upsert=True)
-
-    return {"message": "Reads ebook online"}
-
-
-
-@ebook.get(  
-    path='/craw_data/{ebook_name}',
-    name="Craw data",
-    description="Craw data",
+    path='/crawl_data/{ebook_name}',
+    name="Crawl data",
+    description="Crawl data",
 )
 async def craw_data(ebook_name):
 
-    data = crawl(ebook_name)
+    data = crawl_data(ebook_name)
    
     return data
 

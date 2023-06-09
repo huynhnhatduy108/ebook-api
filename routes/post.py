@@ -318,7 +318,7 @@ async def info_post_by_slug(slug):
     name="Create post",
     description="Create post",
 )
-async def create_post(post: Post, auth: dict = Depends(validate_token)):
+async def create_post(post: Post, auth = Depends(validate_token)):
     post = post.dict()
     post['slug'] = gen_slug_radom_string(post["name"],5)
     post['created_by'] = ObjectId(auth)
