@@ -32,6 +32,7 @@ def tiki_crawl_list(q, quantity =5):
                         "name": book["name"],
                         "quantity_sold": quantity_sold,
                         "url_path": TIKI_DOMAIN + book["url_path"],
+                        "url_image":book["thumbnail_url"],
                         "url_search": tiki_search,
                     })
                 else:

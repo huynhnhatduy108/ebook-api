@@ -20,7 +20,7 @@ class Ebook(BaseModel):
     mobi_url:str =""
     prc_url:str =""
     azw_url: str =""
-
+    is_public:bool= True
     deleted_flag :bool = False
     created_at: str = datetime.now().strftime("%Y-%m-%d %X")
     updated_at: str = datetime.now().strftime("%Y-%m-%d %X")
@@ -33,6 +33,9 @@ class Ebook(BaseModel):
 
     def dict(self, **kwargs):
         data = super().dict(**kwargs)
+        data["views"] = 0
+        data["downloads"] = 0
+        data["average_rate"] = 0
         data['categories'] = self.categories
         data["deleted_flag"] = False
         return data
@@ -41,15 +44,7 @@ class Ebook(BaseModel):
     def number_validator(cls, values):
         values["updated_at"] = datetime.now().strftime("%Y-%m-%d %X")
         return values
-    
 
-class EbookView(BaseModel):
-    ebook_id: str =""
-    view: int 
-
-class EbookDownload(BaseModel):
-    ebook_id: str =""
-    num_download: int 
 
 class EbookRate(BaseModel):
     ebook_id: str =""
@@ -69,7 +64,6 @@ class EbookRate(BaseModel):
         if value<=5 and value>0:
             return value
         raise  ValueError("rate must be in range 1 to 5")
-
 
 
     @root_validator

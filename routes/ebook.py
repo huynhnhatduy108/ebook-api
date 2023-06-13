@@ -33,22 +33,6 @@ def get_ebook_by_id_or_slug(match={}):
                 },
                 {
                     "$lookup": {
-                        "from": "ebook_view",
-                        "localField": "_id",
-                        "foreignField": "ebook_id",
-                        "as": "views"
-                    }
-                },
-                {
-                    "$lookup": {
-                        "from": "ebook_download",
-                        "localField": "_id",
-                        "foreignField": "ebook_id",
-                        "as": "ebook_download"
-                    }
-                },
-                {
-                    "$lookup": {
                         "from": "ebook_rate",
                         "localField": "_id",
                         "foreignField": "ebook_id",
@@ -73,20 +57,13 @@ def get_ebook_by_id_or_slug(match={}):
                                 }
                             }
                         },
-                        "views": { "$arrayElemAt": ["$views.views", 0] },
-                        "downloads": { "$arrayElemAt": ["$ebook_download.downloads", 0] },
                         "admin":{
                             "username": { "$arrayElemAt": ["$created_by.username", 0] },
                             "full_name": { "$arrayElemAt": ["$created_by.full_name", 0] },
                         },
-                        "rate.average": { 
-                                '$cond': {
-                                    'if': { '$eq': [{"$avg": "$ebook_rate.rate"}, None] },
-                                    'then': 0,
-                                    'else': {"$avg": "$ebook_rate.rate"},
-                                },
-                        },
                         "rate.size": { "$size": "$ebook_rate" },
+                        "rate.average_rate": "$average_rate" ,
+
                     }
                 },
                 {
@@ -95,7 +72,7 @@ def get_ebook_by_id_or_slug(match={}):
                         "created_by":0,
                         "updated_by":0,
                         "ebook_rate":0,
-                        "ebook_download":0
+                        "average_rate":0
                     }
                 }
             ])
@@ -178,82 +155,22 @@ async def list_ebooks(param:EbookQueryParams = Depends()):
         sort_condition=param.ordering
 
     pipline=[
-                # {
-                #     "$lookup": {
-                #         "from": "category",
-                #         "localField": "categories",
-                #         "foreignField": "_id",
-                #         "as": "categories"
-                #     }
-                # },
-                {
-                    "$lookup": {
-                        "from": "ebook_view",
-                        "localField": "_id",
-                        "foreignField": "ebook_id",
-                        "as": "views"
-                    }
-                },
-                 {
-                    "$lookup": {
-                        "from": "ebook_download",
-                        "localField": "_id",
-                        "foreignField": "ebook_id",
-                        "as": "downloads"
-                    }
-                },
-                {
-                    "$lookup": {
-                        "from": "ebook_rate",
-                        "localField": "_id",
-                        "foreignField": "ebook_id",
-                        "as": "ebook_rate"
-                    }
-                },
                 {
                     "$match": match_condition if match_condition["$and"] else {}
                 },
                 {
                     "$addFields": {
                         "_id": { "$toString": "$_id" },
-                        "views": { "$arrayElemAt": ["$views.views", 0] },
-                        "downloads": { "$arrayElemAt": ["$downloads.downloads", 0] },
-                        "rate.average": { 
-                                '$cond': {
-                                    'if': { '$eq': [{"$avg": "$ebook_rate.rate"}, None] },
-                                    'then': 0,
-                                    'else': {"$avg": "$ebook_rate.rate"},
-                                },
-                        },
-                        "rate.size": { "$size": "$ebook_rate" },
-                         # "categories": {
-                        #     "$map": {
-                        #         "input": "$categories",
-                        #         "as": "category",
-                        #         "in": {
-                        #             "_id": { "$toString": "$$category._id" },
-                        #             "name": "$$category.name",
-                        #             "name_en": "$$category.name_en",
-                        #             "description": "$$category.description"
-                        #         }
-                        #     }
-                        # },
                     }
                 },
                 {
                     "$project": {
                         "_id":1, 
-                        "views":1,
-                        "rate":1,
                         "name":1,
+                        "img_url":1,
+                        "average_rate":1,
+                        "views":1,
                         "downloads":1
-                        # "deleted_flag": 0,
-                        # "tags":0,
-                        # "categories":0,
-                        # "created_by":0,
-                        # "updated_by":0,
-                        # "ebook_rate":0,
-                        # "content":0
                     }
                 },
                  {
@@ -308,8 +225,8 @@ async def info_ebook_by_slug(slug):
     ebook = get_ebook_by_id_or_slug(match)
         
     # update view 
-    ebook_view = client.ebook_view.find_one_and_update(
-        {"ebook_id":ObjectId(ebook["_id"])},
+    ebook_view = client.ebook.find_one_and_update(
+        {"_id":ObjectId(ebook["_id"])},
         {"$inc": {"views": 1}},
         upsert=True,
         return_document=ReturnDocument.AFTER
@@ -333,9 +250,6 @@ async def create_ebook(ebook: Ebook, auth: dict = Depends(validate_token)):
     ebook['updated_by'] = ObjectId(auth)
 
     ebook_create = client.ebook.insert_one(ebook)
-
-    client.ebook_view.insert_one({"ebook_id":ebook_create.inserted_id, "views": 0 })
-    client.ebook_download.insert_one({"ebook_id":ebook_create.inserted_id, "downloads": 0 })
 
     if ebook["categories"]:
         client.category.update_many({"_id": {"$in": ebook["categories"]}},{"$push": {"ebooks": ebook["_id"]}})
@@ -407,15 +321,12 @@ async def delete_ebook(id, auth: dict = Depends(validate_token)):
         client.category.update_many({"_id": {"$in": ebook["categories"]}},
                                     {"$pull": {"ebooks": ObjectId(id)}})
         
-    client.ebook_view.find_one_and_delete({"ebook_id":ObjectId(id) })
-    client.ebook_download.find_one_and_delete({"ebook_id":ObjectId(id)})
     client.ebook_comment.delete_many({"ebook_id":ObjectId(id)})
     client.ebook_rate.delete_many({"ebook_id":ObjectId(id)})
 
     client.ebook.find_one_and_delete({"_id":ObjectId(id)})
     
     return JSONResponse(content={"message":"Delete success"}, status_code=200)
-
 
 
 @ebook.post(  

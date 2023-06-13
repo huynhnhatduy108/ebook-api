@@ -10,6 +10,113 @@ from pymongo import ReturnDocument
 
 post = APIRouter() 
 
+def get_info_by_slug_or_id(match={}):
+
+    posts = client.post.aggregate([
+                {
+                    "$lookup": {
+                        "from": "category",
+                        "localField": "categories",
+                        "foreignField": "_id",
+                        "as": "categories"
+                    }
+                },
+                {
+                    "$lookup": {
+                        "from": "user",
+                        "localField": "created_by",
+                        "foreignField": "_id",
+                        "as": "created_by"
+                    }
+                },
+                 {
+                    "$lookup": {
+                        "from": "ebook",
+                        "localField": "ebook_id",
+                        "foreignField": "_id",
+                        "as": "ebook_docs"
+                    }
+                },
+                 {
+                    "$match": match
+                },
+                {
+                    "$addFields": {
+                        "_id": { "$toString": "$_id" },
+                        "categories": {
+                            "$map": {
+                                "input": "$categories",
+                                "as": "category",
+                                "in": {
+                                    "_id": { "$toString": "$$category._id" },
+                                    "name": "$$category.name",
+                                    "name_en": "$$category.name_en",
+                                    "description": "$$category.description"
+                                }
+                            }
+                        },
+                        "ebook":{
+                            "_id": { "$toString": "$ebook_id" },
+                            "name":{ "$arrayElemAt": ["$ebook_docs.name", 0] },
+                            "pdf_url": { "$arrayElemAt": ["$ebook_docs.pdf_url", 0] },
+                        },
+                      
+                        "author":{
+                            "username": { "$arrayElemAt": ["$created_by.username", 0] },
+                            "full_name": { "$arrayElemAt": ["$created_by.full_name", 0] },
+                        }
+                    }
+                },
+                {
+                    "$project": {
+                        "deleted_flag": 0,
+                        "ebook_id":0,
+                        "created_by":0,
+                        "updated_by":0,
+                        "ebook_docs":0
+                    }
+                }
+            ])
+    
+    post = next(posts, None)
+
+    if not post:
+        raise HTTPException(404, detail="Post not found!")
+
+    comments = client.post_comment.aggregate([
+                {
+                    "$lookup": {
+                        "from": "user",
+                        "localField": "user_id",
+                        "foreignField": "_id",
+                        "as": "user"
+                    }
+                },
+                 {
+                    "$match": match
+                },
+                {
+                    "$addFields": {
+                        "_id": { "$toString": "$_id" },
+                        "user_comment":{
+                            "username": { "$arrayElemAt": ["$user.username", 0] },
+                            "full_name": { "$arrayElemAt": ["$user.full_name", 0] },
+                        }
+                    }
+                },
+                {
+                    "$project": {
+                        "deleted_flag": 0,
+                        "post_id":0,
+                        "user_id":0,
+                        "user":0,
+                    }
+                }
+            ])
+    post["comments"]= list(comments)
+
+    return post
+
 @post.get(
     path='/',
     name="List post",
@@ -56,14 +163,6 @@ async def list_posts(param:PostQueryParams = Depends()):
                     }
                 },
                 {
-                    "$lookup": {
-                        "from": "post_view",
-                        "localField": "_id",
-                        "foreignField": "post_id",
-                        "as": "views"
-                    }
-                },
-                {
                     "$match": match_condition if match_condition["$and"] else {}
                 },
                 {
@@ -81,7 +180,6 @@ async def list_posts(param:PostQueryParams = Depends()):
                                 }
                             }
                         },
-                        "views": { "$arrayElemAt": ["$views.views", 0] },
                     }
                 },
                 {
@@ -125,89 +223,9 @@ async def list_posts(param:PostQueryParams = Depends()):
     description="Info post by id",
 )
 async def info_post_by_id(id:str):
-
-    posts = client.post.aggregate([
-                {
-                    "$lookup": {
-                        "from": "category",
-                        "localField": "categories",
-                        "foreignField": "_id",
-                        "as": "categories"
-                    }
-                },
-                {
-                    "$lookup": {
-                        "from": "user",
-                        "localField": "created_by",
-                        "foreignField": "_id",
-                        "as": "created_by"
-                    }
-                },
-                {
-                    "$lookup": {
-                        "from": "post_view",
-                        "localField": "_id",
-                        "foreignField": "post_id",
-                        "as": "views"
-                    }
-                },
-                 {
-                    "$lookup": {
-                        "from": "ebook",
-                        "localField": "ebook_id",
-                        "foreignField": "_id",
-                        "as": "ebook_docs"
-                    }
-                },
-                 {
-                    "$match": {
-                        "_id": ObjectId(id)
-                    }
-                },
-                {
-                    "$addFields": {
-                        "_id": { "$toString": "$_id" },
-                        "categories": {
-                            "$map": {
-                                "input": "$categories",
-                                "as": "category",
-                                "in": {
-                                    "_id": { "$toString": "$$category._id" },
-                                    "name": "$$category.name",
-                                    "name_en": "$$category.name_en",
-                                    "description": "$$category.description"
-                                }
-                            }
-                        },
-                        "views": { "$arrayElemAt": ["$views.views", 0] },
-                        "ebook":{
-                            "_id": { "$toString": "$ebook_id" },
-                            "name":{ "$arrayElemAt": ["$ebook_docs.name", 0] },
-                            "pdf_url": { "$arrayElemAt": ["$ebook_docs.pdf_url", 0] },
-                        },
-                      
-                        "author":{
-                            "username": { "$arrayElemAt": ["$created_by.username", 0] },
-                            "full_name": { "$arrayElemAt": ["$created_by.full_name", 0] },
-                        }
-                    }
-                },
-                {
-                    "$project": {
-                        "deleted_flag": 0,
-                        "ebook_id":0,
-                        "created_by":0,
-                        "updated_by":0,
-                        "ebook_docs":0
-                    }
-                }
-            ])
     
-    post = next(posts, None)
-    # print("post", post)
-
-    if not post:
-        raise HTTPException(404, detail="Post not found!")
+    match = {"_id":ObjectId(id)}
+    post = get_info_by_slug_or_id(match)
     
     return post
 
@@ -218,91 +236,12 @@ async def info_post_by_id(id:str):
 )
 async def info_post_by_slug(slug):
 
-    posts = client.post.aggregate([
-                {
-                    "$lookup": {
-                        "from": "category",
-                        "localField": "categories",
-                        "foreignField": "_id",
-                        "as": "categories"
-                    }
-                },
-                {
-                    "$lookup": {
-                        "from": "user",
-                        "localField": "created_by",
-                        "foreignField": "_id",
-                        "as": "created_by"
-                    }
-                },
-                {
-                    "$lookup": {
-                        "from": "post_view",
-                        "localField": "_id",
-                        "foreignField": "post_id",
-                        "as": "views"
-                    }
-                },
-                 {
-                    "$lookup": {
-                        "from": "ebook",
-                        "localField": "ebook_id",
-                        "foreignField": "_id",
-                        "as": "ebook_docs"
-                    }
-                },
-                 {
-                    "$match": {
-                        "slug": slug
-                    }
-                },
-                {
-                    "$addFields": {
-                        "_id": { "$toString": "$_id" },
-                        "categories": {
-                            "$map": {
-                                "input": "$categories",
-                                "as": "category",
-                                "in": {
-                                    "_id": { "$toString": "$$category._id" },
-                                    "name": "$$category.name",
-                                    "name_en": "$$category.name_en",
-                                    "description": "$$category.description"
-                                }
-                            }
-                        },
-                        "views": { "$arrayElemAt": ["$views.views", 0] },
-                        "ebook":{
-                            "_id": { "$toString": "$ebook_id" },
-                            "name":{ "$arrayElemAt": ["$ebook_docs.name", 0] },
-                            "pdf_url": { "$arrayElemAt": ["$ebook_docs.pdf_url", 0] },
-                        },
-                      
-                        "author":{
-                            "username": { "$arrayElemAt": ["$created_by.username", 0] },
-                            "full_name": { "$arrayElemAt": ["$created_by.full_name", 0] },
-                        }
-                    }
-                },
-                {
-                    "$project": {
-                        "deleted_flag": 0,
-                        "ebook_id":0,
-                        "created_by":0,
-                        "updated_by":0,
-                        "ebook_docs":0
-                    }
-                }
-            ])
-    
-    post = next(posts, None)
-
-    if not post:
-        raise HTTPException(404, detail="Post not found!")
+    match = {"slug":slug}
+    post = get_info_by_slug_or_id(match)
     
     # update view 
-    post_view = client.post_view.find_one_and_update(
-        {"post_id": ObjectId(post["_id"])},
+    post_view = client.post.find_one_and_update(
+        {"_id": ObjectId(post["_id"])},
         {"$inc": {"views": 1}},
         upsert=True,
         return_document=ReturnDocument.AFTER
@@ -325,9 +264,6 @@ async def create_post(post: Post, auth = Depends(validate_token)):
     post['updated_by'] = ObjectId(auth)
 
     post_create = client.post.insert_one(post)
-
-    # create post views
-    client.post_view.insert_one({"post_id":post["_id"], "views": 0 })
 
     if post["categories"]:
         client.category.update_many({"_id": {"$in": post["categories"]}},{"$push": {"posts": post_create.inserted_id}})
@@ -404,9 +340,6 @@ async def delete_post(id, auth: dict = Depends(validate_token)):
     if len(category_ids):
         client.category.update_many({"_id": {"$in": category_ids}},
                                     {"$pull": {"posts": ObjectId(id)}})
-        
-    client.post_view.find_one_and_delete({"ebook_id":ObjectId(id) })
-
 
     client.post.find_one_and_delete({"_id":ObjectId(id)})
     return JSONResponse(content={"message":"Delete success"}, status_code=200)

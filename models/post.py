@@ -35,6 +35,7 @@ class Post(BaseModel):
 
     def dict(self, **kwargs):
         data = super().dict(**kwargs)
+        data["views"] = 0
         data['categories'] = self.categories
         data["deleted_flag"] = False
         return data
