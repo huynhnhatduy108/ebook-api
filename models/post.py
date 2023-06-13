@@ -11,6 +11,7 @@ class Post(BaseModel):
     categories: list[str] =[]
     tags: list[str] =[]
     ebook_id: str = ""
+    is_public:bool= True
     published_at: str = datetime.now().strftime("%Y-%m-%d %X")
 
     created_at: str = datetime.now().strftime("%Y-%m-%d %X")

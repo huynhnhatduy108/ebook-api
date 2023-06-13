@@ -72,30 +72,12 @@ async def get_info_dashboard(auth = Depends(validate_token)):
 
     # Ebook
     ebooks = client.ebook.count_documents({})
-    ebook_views = list(client.ebook_view.aggregate([
-                {
-                    "$group": {
-                        "_id": 1,
-                        "total_views": { "$sum": "$views" }
-                    }
-                }
-        ]))
+
     e_views =0
-    if len(ebook_views) > 0:
-         e_views = ebook_views[0]["total_views"]
+    # if len(ebook_views) > 0:
+    #      e_views = ebook_views[0]["total_views"]
 
-    ebook_downloads = list(client.ebook_download.aggregate([
-                {
-                    "$group": {
-                        "_id": 1,
-                        "total_downloads": { "$sum": "$downloads" }
-                    }
-                }
-        ]))
     e_downloads =0
-    if len(ebook_downloads) > 0:
-         e_downloads = ebook_downloads[0]["total_downloads"]
-
 
     dashboard = client.dashboard.find_one({"key":DASHBOARD})
 
