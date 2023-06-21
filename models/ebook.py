@@ -1,5 +1,6 @@
 from pydantic import BaseModel,root_validator, validator
 from datetime import datetime
+from config.constant import LANGUAGES, VIETNAMESE
 from functions.function import gen_slug_radom_string
 from bson import ObjectId
 
@@ -21,6 +22,9 @@ class Ebook(BaseModel):
     prc_url:str =""
     azw_url: str =""
     is_public:bool= True
+    views:int = 0
+    downloads :int =0
+    language:str=""
     deleted_flag :bool = False
     created_at: str = datetime.now().strftime("%Y-%m-%d %X")
     updated_at: str = datetime.now().strftime("%Y-%m-%d %X")
@@ -30,11 +34,15 @@ class Ebook(BaseModel):
         if isinstance(value, list):
             return [ObjectId(v) if isinstance(v, str) else v for v in value]
         return value
+    
+    @validator("language", pre=False)
+    def validate_language(cls, value):
+        if not value:
+            return LANGUAGES[VIETNAMESE]
+        return value
 
     def dict(self, **kwargs):
         data = super().dict(**kwargs)
-        data["views"] = 0
-        data["downloads"] = 0
         data["average_rate"] = 0
         data['categories'] = self.categories
         data["deleted_flag"] = False

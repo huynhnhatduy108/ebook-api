@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from config.constant import DASHBOARD
+from config.constant import CLOUDINARY_CLOUD_URL, DASHBOARD, FIREBASE_CLOUD_URL
 from crawl.crawl import crawl_data
 from crawl.lazada import lazada_crawl
 from functions.auth import generate_token, validate_token
@@ -10,6 +10,7 @@ from schemas.ebook import EbookQueryParams, serializeDict, serializeList
 from bson import ObjectId
 from fastapi.responses import JSONResponse
 from pymongo import ReturnDocument, UpdateOne
+import math
 
 ebook = APIRouter() 
 
@@ -161,6 +162,21 @@ async def list_ebooks(param:EbookQueryParams = Depends()):
                 {
                     "$addFields": {
                         "_id": { "$toString": "$_id" },
+                        "thumbnail2": {
+                                "$concat": [
+                                    CLOUDINARY_CLOUD_URL,
+                                    "Ebook/thumbnail/",
+                                    "$img_url"
+                                ]
+                            },
+                        "thumbnail": {
+                                "$concat": [
+                                    FIREBASE_CLOUD_URL,
+                                    "%2Fthumbnail%2F",
+                                    "$img_url",
+                                    "?alt=media"
+                                ]
+                            }
                     }
                 },
                 {
@@ -170,7 +186,9 @@ async def list_ebooks(param:EbookQueryParams = Depends()):
                         "img_url":1,
                         "average_rate":1,
                         "views":1,
-                        "downloads":1
+                        "downloads":1,
+                        "thumbnail2":1,
+                        "thumbnail":1,
                     }
                 },
                  {
@@ -197,7 +215,9 @@ async def list_ebooks(param:EbookQueryParams = Depends()):
         "items": items,
         "page":page,
         "page_size":page_size,
-        "total_record":total_record
+        "total_record":total_record,
+        "total_page":math.ceil(total_record / page_size)
+
     }
     return data
 

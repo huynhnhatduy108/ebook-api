@@ -7,6 +7,7 @@ from schemas.category import CategoryQueryParams
 from bson import ObjectId
 from fastapi.responses import JSONResponse
 from pymongo import ReturnDocument
+import math
 
 category = APIRouter() 
 
@@ -88,9 +89,41 @@ async def list_categories(param:CategoryQueryParams = Depends()):
         "items": items,
         "page":page,
         "page_size":page_size,
-        "total_record":total_record
+        "total_record":total_record,
+        "total_page":math.ceil(total_record / page_size)
     }
     return data
+
+
+@category.get(
+    path='/full',
+    name="List category full",
+    description="Get list category full",
+)
+async def list_categories_full():
+ 
+    pipline=[
+                 {
+                    "$addFields": {
+                        "_id": { "$toString": "$_id" },
+                        "count.ebooks": { "$size": "$ebooks" },
+                        "count.posts": { "$size": "$posts" }
+                    }
+                },
+                 {
+                    "$project": {
+                        "deleted_flag": 0,
+                        "ebooks":0,
+                        "posts":0,
+                    }
+                },
+            ]
+    
+
+    result = client.category.aggregate(pipline)
+    result = list(result)
+   
+    return result
 
 
 @category.get(

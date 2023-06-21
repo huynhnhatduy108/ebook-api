@@ -23,7 +23,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
-    # allow_headers=["POST", "GET"],
+    allow_headers=["*"],
 )
 app.include_router(auth_router, tags=["A. Auth"], prefix="/auth")
 app.include_router(user_router, tags=["B. Users"], prefix="/user")
