@@ -123,7 +123,7 @@ def get_info_by_slug_or_id(match={}):
     description="Get list post",
 )
 async def list_posts(param:PostQueryParams = Depends()):
-    match_condition = {"$and":[]}
+    match_condition = {"$and":[{"is_public":True}]}
     sort_condition = {}
     page = param.page
     page_size = param.page_size
@@ -182,6 +182,105 @@ async def list_posts(param:PostQueryParams = Depends()):
                         },
                     }
                 },
+                {
+                    "$project": {
+                        "deleted_flag": 0,
+                        "created_by":0,
+                        "updated_by":0,
+                        "ebook_id":0,
+                    }
+                },
+                {
+                    "$sort":sort_condition
+                },
+                {
+                    "$facet": {
+                        "data": [{"$skip": skip},{"$limit": page_size}],
+                        "count": [{"$count": "total_record"}]
+                    }
+                },
+            ]
+
+    result = client.post.aggregate(pipline)
+    result = list(result)
+    items = result[0]["data"]
+    total_record = 0
+    if result[0]["data"]:
+        total_record = result[0]["count"][0]["total_record"]
+
+    data ={
+        "items": items,
+        "page":page,
+        "page_size":page_size,
+        "total_record":total_record
+    }
+    return data
+
+@post.get(
+    path='/admin',
+    name="List post admin",
+    description="Get list post admin",
+)
+async def list_posts_admin(param:PostQueryParams = Depends(), auth = Depends(validate_token)):
+    match_condition = {"$and":[]}
+    sort_condition = {}
+    page = param.page
+    page_size = param.page_size
+    skip = page * page_size - page_size;
+
+    if "keyword" in dict(param):
+        if param.keyword:
+            keyword_scope = {
+                                "$or":[
+                                        {"name":{"$regex" : param.keyword, '$options': 'i'}},
+                                        {"slug":{"$regex" : gen_slug_radom_string(param.keyword,0), '$options': 'i'}},
+                                      ]       
+                            }
+            
+            match_condition["$and"].append(keyword_scope)
+
+    if "categories" in dict(param):
+        if param.categories:
+            cates_scope = {"categories._id":{"$in":param.categories} }
+            match_condition["$and"].append(cates_scope)
+
+    if "tags" in dict(param):
+        if param.tags:
+            cates_scope = {"tags":{"$in":param.tags} }
+            match_condition["$and"].append(cates_scope)
+    
+    if "ordering" in dict(param):
+        sort_condition=param.ordering
+
+    pipline= [
+                # {
+                #     "$lookup": {
+                #         "from": "category",
+                #         "localField": "categories",
+                #         "foreignField": "_id",
+                #         "as": "categories"
+                #     }
+                # },
+                {
+                    "$match": match_condition if match_condition["$and"] else {}
+                },
+                # {
+                #     "$addFields": {
+                #         "_id": { "$toString": "$_id" },
+                #         "categories": {
+                #             "$map": {
+                #                 "input": "$categories",
+                #                 "as": "category",
+                #                 "in": {
+                #                     "_id": { "$toString": "$$category._id" },
+                #                     "name": "$$category.name",
+                #                     "name_en": "$$category.name_en",
+                #                     "description": "$$category.description"
+                #                 }
+                #             }
+                #         },
+                #     }
+                # },
                 {
                     "$project": {
                         "deleted_flag": 0,

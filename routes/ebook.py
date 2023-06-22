@@ -123,7 +123,7 @@ def get_ebook_by_id_or_slug(match={}):
     description="Get list ebook",
 )
 async def list_ebooks(param:EbookQueryParams = Depends()):
-    match_condition = {"$and":[]}
+    match_condition = {"$and":[{"is_public":True}]}
     page = param.page
     page_size = param.page_size
     skip = page * page_size - page_size;
@@ -149,11 +149,17 @@ async def list_ebooks(param:EbookQueryParams = Depends()):
 
     if "tags" in dict(param):
         if param.tags:
-            cates_scope = {"tags":{"$in":param.tags} }
-            match_condition["$and"].append(cates_scope)
+            tags_scope = {"tags":{"$in":param.tags} }
+            match_condition["$and"].append(tags_scope)
+
+    if "language" in dict(param):
+        if param.language:
+            language_scopes={"language":param.language }
+            match_condition["$and"].append(language_scopes)
 
     if "ordering" in dict(param):
         sort_condition=param.ordering
+    
 
     pipline=[
                 {
@@ -189,6 +195,139 @@ async def list_ebooks(param:EbookQueryParams = Depends()):
                         "downloads":1,
                         "thumbnail2":1,
                         "thumbnail":1,
+                    }
+                },
+                 {
+                    "$sort":sort_condition
+                },
+                {
+                    "$facet": {
+                        "data": [{"$skip": skip},{"$limit": page_size}],
+                        "count": [{"$count": "total_record"}]
+                    }
+                },
+            ]
+
+    result = client.ebook.aggregate(pipline)
+    result = list(result)
+
+    items = result[0]["data"]
+
+    total_record = 0
+    if result[0]["data"]:
+        total_record = result[0]["count"][0]["total_record"]
+
+    data ={
+        "items": items,
+        "page":page,
+        "page_size":page_size,
+        "total_record":total_record,
+        "total_page":math.ceil(total_record / page_size)
+
+    }
+    return data
+
+@ebook.get(
+    path='/admin',
+    name="List ebook admin",
+    description="Get list ebook admin",
+)
+async def list_ebooks_admin(param:EbookQueryParams = Depends(),auth: dict = Depends(validate_token)):
+    match_condition = {"$and":[]}
+    page = param.page
+    page_size = param.page_size
+    skip = page * page_size - page_size;
+    sort_condition = {}
+
+    if "keyword" in dict(param):
+        if param.keyword:
+            keyword_scope = {
+                                "$or":[
+                                        {"name":{"$regex" : param.keyword, '$options': 'i'}},
+                                        {"content":{"$regex" : param.keyword, '$options': 'i'}},
+                                        {"intro":{"$regex" : param.keyword, '$options': 'i'}},
+                                        {"slug":{"$regex" : gen_slug_radom_string(param.keyword,0), '$options': 'i'}},
+                                      ]       
+                            }
+            
+            match_condition["$and"].append(keyword_scope)
+
+    if "categories" in dict(param):
+        if param.categories:
+            cates_scope = {"categories._id":{"$in":param.categories} }
+            match_condition["$and"].append(cates_scope)
+
+    if "tags" in dict(param):
+        if param.tags:
+            tags_scope = {"tags":{"$in":param.tags} }
+            match_condition["$and"].append(tags_scope)
+
+    if "language" in dict(param):
+        if param.language:
+            language_scopes={"language":param.language }
+            match_condition["$and"].append(language_scopes)
+
+    if "ordering" in dict(param):
+        sort_condition=param.ordering
+    
+
+    pipline=[
+                # {
+                #     "$lookup": {
+                #         "from": "category",
+                #         "localField": "categories",
+                #         "foreignField": "_id",
+                #         "as": "categories"
+                #     }
+                # },
+                {
+                    "$match": match_condition if match_condition["$and"] else {}
+                },
+                {
+                    "$addFields": {
+                        "_id": { "$toString": "$_id" },
+                        # "categories": {
+                        #     "$map": {
+                        #         "input": "$categories",
+                        #         "as": "category",
+                        #         "in": {
+                        #             "_id": { "$toString": "$$category._id" },
+                        #             "name": "$$category.name",
+                        #             "name_en": "$$category.name_en",
+                        #             "description": "$$category.description"
+                        #         }
+                        #     }
+                        # },
+                        "thumbnail2": {
+                                "$concat": [
+                                    CLOUDINARY_CLOUD_URL,
+                                    "Ebook/thumbnail/",
+                                    "$img_url"
+                                ]
+                            },
+                        "thumbnail": {
+                                "$concat": [
+                                    FIREBASE_CLOUD_URL,
+                                    "%2Fthumbnail%2F",
+                                    "$img_url",
+                                    "?alt=media"
+                                ]
+                            }
+                    }
+                },
+                {
+                    "$project": {
+                        "_id":1, 
+                        "name":1,
+                        "img_url":1,
+                        "tags":1,
+                        "average_rate":1,
+                        "views":1,
+                        "language":1,
+                        "downloads":1,
+                        "thumbnail2":1,
+                        "thumbnail":1,
+                        # "categories":1
                     }
                 },
                  {

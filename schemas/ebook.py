@@ -13,6 +13,7 @@ class EbookQueryParams(BaseModel):
     keyword: str=None
     tags: str=None
     categories: str=None
+    language:str =None
     page: int= 1
     page_size: int = 10
     ordering :str = ""
