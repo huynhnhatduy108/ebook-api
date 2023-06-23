@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from config.constant import CLOUDINARY_CLOUD_URL, DASHBOARD, FIREBASE_CLOUD_URL
+from config.constant import BOOK_THUMBNAIL_PATH, CLOUDINARY_CLOUD_URL, DASHBOARD, FIREBASE_CLOUD_URL
 from crawl.crawl import crawl_data
 from crawl.lazada import lazada_crawl
 from functions.auth import generate_token, validate_token
@@ -64,6 +64,20 @@ def get_ebook_by_id_or_slug(match={}):
                         },
                         "rate.size": { "$size": "$ebook_rate" },
                         "rate.average_rate": "$average_rate" ,
+                        "img_url": {
+                            "$cond": {
+                                "if": { "$eq": [ "$img_url", "" ] },
+                                "then": "",
+                                "else": {
+                                "$concat": [
+                                    FIREBASE_CLOUD_URL,
+                                    BOOK_THUMBNAIL_PATH,
+                                    { "$ifNull": [ "$img_url", "" ] },
+                                    "?alt=media"
+                                ]
+                                }
+                            }
+                        }
 
                     }
                 },
@@ -168,21 +182,20 @@ async def list_ebooks(param:EbookQueryParams = Depends()):
                 {
                     "$addFields": {
                         "_id": { "$toString": "$_id" },
-                        "thumbnail2": {
-                                "$concat": [
-                                    CLOUDINARY_CLOUD_URL,
-                                    "Ebook/thumbnail/",
-                                    "$img_url"
-                                ]
-                            },
-                        "thumbnail": {
+                        "img_url": {
+                            "$cond": {
+                                "if": { "$eq": [ "$img_url", "" ] },
+                                "then": "",
+                                "else": {
                                 "$concat": [
                                     FIREBASE_CLOUD_URL,
-                                    "%2Fthumbnail%2F",
-                                    "$img_url",
+                                    BOOK_THUMBNAIL_PATH,
+                                    { "$ifNull": [ "$img_url", "" ] },
                                     "?alt=media"
                                 ]
+                                }
                             }
+                        }
                     }
                 },
                 {
@@ -193,8 +206,6 @@ async def list_ebooks(param:EbookQueryParams = Depends()):
                         "average_rate":1,
                         "views":1,
                         "downloads":1,
-                        "thumbnail2":1,
-                        "thumbnail":1,
                     }
                 },
                  {
@@ -272,47 +283,46 @@ async def list_ebooks_admin(param:EbookQueryParams = Depends(),auth: dict = Depe
     
 
     pipline=[
-                # {
-                #     "$lookup": {
-                #         "from": "category",
-                #         "localField": "categories",
-                #         "foreignField": "_id",
-                #         "as": "categories"
-                #     }
-                # },
+                {
+                    "$lookup": {
+                        "from": "category",
+                        "localField": "categories",
+                        "foreignField": "_id",
+                        "as": "categories"
+                    }
+                },
                 {
                     "$match": match_condition if match_condition["$and"] else {}
                 },
                 {
                     "$addFields": {
                         "_id": { "$toString": "$_id" },
-                        # "categories": {
-                        #     "$map": {
-                        #         "input": "$categories",
-                        #         "as": "category",
-                        #         "in": {
-                        #             "_id": { "$toString": "$$category._id" },
-                        #             "name": "$$category.name",
-                        #             "name_en": "$$category.name_en",
-                        #             "description": "$$category.description"
-                        #         }
-                        #     }
-                        # },
-                        "thumbnail2": {
-                                "$concat": [
-                                    CLOUDINARY_CLOUD_URL,
-                                    "Ebook/thumbnail/",
-                                    "$img_url"
-                                ]
-                            },
-                        "thumbnail": {
+                        "categories": {
+                            "$map": {
+                                "input": "$categories",
+                                "as": "category",
+                                "in": {
+                                    "_id": { "$toString": "$$category._id" },
+                                    "name": "$$category.name",
+                                    "name_en": "$$category.name_en",
+                                    "description": "$$category.description"
+                                }
+                            }
+                        },
+                        "img_url": {
+                            "$cond": {
+                                "if": { "$eq": [ "$img_url", "" ] },
+                                "then": "",
+                                "else": {
                                 "$concat": [
                                     FIREBASE_CLOUD_URL,
-                                    "%2Fthumbnail%2F",
-                                    "$img_url",
+                                    BOOK_THUMBNAIL_PATH,
+                                    { "$ifNull": [ "$img_url", "" ] },
                                     "?alt=media"
                                 ]
+                                }
                             }
+                        }
                     }
                 },
                 {
@@ -325,9 +335,7 @@ async def list_ebooks_admin(param:EbookQueryParams = Depends(),auth: dict = Depe
                         "views":1,
                         "language":1,
                         "downloads":1,
-                        "thumbnail2":1,
-                        "thumbnail":1,
-                        # "categories":1
+                        "categories":1
                     }
                 },
                  {

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from config.constant import CATEGORY_PATH, FIREBASE_CLOUD_URL
 from functions.auth import generate_token, validate_token
 from functions.function import gen_slug_radom_string
 from models.category import Category
@@ -10,6 +11,7 @@ from pymongo import ReturnDocument
 import math
 
 category = APIRouter() 
+
 
 @category.get(
     path='/',
@@ -55,7 +57,21 @@ async def list_categories(param:CategoryQueryParams = Depends()):
                     "$addFields": {
                         "_id": { "$toString": "$_id" },
                         "count.ebooks": { "$size": "$ebooks" },
-                        "count.posts": { "$size": "$posts" }
+                        "count.posts": { "$size": "$posts" },
+                         "thumbnail": {
+                            "$cond": {
+                                "if": { "$eq": [ "$thumbnail", "" ] },
+                                "then": "",
+                                "else": {
+                                    "$concat": [
+                                        FIREBASE_CLOUD_URL,
+                                        CATEGORY_PATH,
+                                        "$thumbnail",
+                                        "?alt=media"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 },
                  {
@@ -107,7 +123,21 @@ async def list_categories_full():
                     "$addFields": {
                         "_id": { "$toString": "$_id" },
                         "count.ebooks": { "$size": "$ebooks" },
-                        "count.posts": { "$size": "$posts" }
+                        "count.posts": { "$size": "$posts" },
+                        "thumbnail": {
+                            "$cond": {
+                                "if": { "$eq": [ "$thumbnail", "" ] },
+                                "then": "",
+                                "else": {
+                                    "$concat": [
+                                        FIREBASE_CLOUD_URL,
+                                        CATEGORY_PATH,
+                                        "$thumbnail",
+                                        "?alt=media"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 },
                  {
@@ -136,7 +166,20 @@ async def info_category_by_id(id:str):
                                          { "_id": { "$toString": "$_id" },
                                            "name":1, 
                                            "name_en":1, 
-                                           "thumbnail":1, 
+                                            "thumbnail": {
+                                                "$cond": {
+                                                    "if": { "$eq": [ "$thumbnail", "" ] },
+                                                    "then": "",
+                                                    "else": {
+                                                        "$concat": [
+                                                            FIREBASE_CLOUD_URL,
+                                                            CATEGORY_PATH,
+                                                            "$thumbnail",
+                                                            "?alt=media"
+                                                        ]
+                                                    }
+                                                }
+                                            }, 
                                            "description":1,
                                            "count.ebooks": { "$size": "$ebooks" },
                                            "count.posts": { "$size": "$posts" },
