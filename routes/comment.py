@@ -9,6 +9,15 @@ from fastapi.responses import JSONResponse
 comment = APIRouter() 
 
 @comment.get(  
+    path='/ebook',
+    name="Get list comment ebook",
+    description="Get list comment ebook",
+)
+async def list_comment_ebook():
+    pass
+
+
+@comment.get(  
     path='/ebook/{ebook_id}',
     name="Get list comment by ebook id",
     description="Get list comment by ebook id",

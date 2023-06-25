@@ -28,6 +28,11 @@ FIREBASE_CLOUD_URL=os.environ.get("FIREBASE_CLOUD_URL")
 # UPLOAD PATH
 BOOK_THUMBNAIL_PATH="/ebook%2Fthumbnail%2F"
 BOOK_PDF_PATH="/ebook%2Fpdf%2F"
+BOOK_EPUB_PATH="/ebook%2Fepub%2F"
+BOOK_MOBI_PATH="/ebook%2Fmobi%2F"
+BOOK_AZW_PATH="/ebook%2Fazw%2F"
+BOOK_PRC_PATH="/ebook%2FpRC%2F"
+
 
 CATEGORY_PATH ="/category%2F"
 POST_PATH=""

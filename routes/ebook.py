@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from config.constant import BOOK_THUMBNAIL_PATH, CLOUDINARY_CLOUD_URL, DASHBOARD, FIREBASE_CLOUD_URL
+from config.constant import DASHBOARD, FIREBASE_CLOUD_URL
 from crawl.crawl import crawl_data
 from crawl.lazada import lazada_crawl
 from functions.auth import generate_token, validate_token
@@ -9,8 +9,16 @@ from config.db import client
 from schemas.ebook import EbookQueryParams, serializeDict, serializeList
 from bson import ObjectId
 from fastapi.responses import JSONResponse
-from pymongo import ReturnDocument, UpdateOne
+from pymongo import ReturnDocument
 import math
+
+BOOK_THUMBNAIL_PATH="/ebook%2Fthumbnail%2F"
+BOOK_PDF_PATH="/ebook%2Fpdf%2F"
+BOOK_EPUB_PATH="/ebook%2Fepub%2F"
+BOOK_MOBI_PATH="/ebook%2Fmobi%2F"
+BOOK_AZW_PATH="/ebook%2Fazw%2F"
+BOOK_PRC_PATH="/ebook%2Fprc%2F"
+
 
 ebook = APIRouter() 
 
@@ -77,8 +85,77 @@ def get_ebook_by_id_or_slug(match={}):
                                 ]
                                 }
                             }
+                        },
+                        "pdf_url": {
+                            "$cond": {
+                                "if": { "$eq": [ "$pdf_url", "" ] },
+                                "then": "",
+                                "else": {
+                                "$concat": [
+                                    FIREBASE_CLOUD_URL,
+                                    BOOK_PDF_PATH,
+                                    { "$ifNull": [ "$pdf_url", "" ] },
+                                    "?alt=media"
+                                ]
+                                }
+                            }
+                        },
+                        "epub_url": {
+                            "$cond": {
+                                "if": { "$eq": [ "$epub_url", "" ] },
+                                "then": "",
+                                "else": {
+                                "$concat": [
+                                    FIREBASE_CLOUD_URL,
+                                    BOOK_EPUB_PATH,
+                                    { "$ifNull": [ "$epub_url", "" ] },
+                                    "?alt=media"
+                                ]
+                                }
+                            }
+                        },
+                        "mobi_url": {
+                            "$cond": {
+                                "if": { "$eq": [ "$mobi_url", "" ] },
+                                "then": "",
+                                "else": {
+                                "$concat": [
+                                    FIREBASE_CLOUD_URL,
+                                    BOOK_MOBI_PATH,
+                                    { "$ifNull": [ "$mobi_url", "" ] },
+                                    "?alt=media"
+                                ]
+                                }
+                            }
+                        },
+                        "prc_url": {
+                            "$cond": {
+                                "if": { "$eq": [ "$prc_url", "" ] },
+                                "then": "",
+                                "else": {
+                                "$concat": [
+                                    FIREBASE_CLOUD_URL,
+                                    BOOK_PRC_PATH,
+                                    { "$ifNull": [ "$prc_url", "" ] },
+                                    "?alt=media"
+                                ]
+                                }
+                            }
+                        },
+                        "azw_url": {
+                            "$cond": {
+                                "if": { "$eq": [ "$azw_url", "" ] },
+                                "then": "",
+                                "else": {
+                                "$concat": [
+                                    FIREBASE_CLOUD_URL,
+                                    BOOK_AZW_PATH,
+                                    { "$ifNull": [ "$azw_url", "" ] },
+                                    "?alt=media"
+                                ]
+                                }
+                            }
                         }
-
                     }
                 },
                 {
@@ -97,37 +174,38 @@ def get_ebook_by_id_or_slug(match={}):
     if not ebook:
         raise HTTPException(404, detail="Ebook not found!")
     
-    comments = client.ebook_comment.aggregate([
-                {
-                    "$lookup": {
-                        "from": "user",
-                        "localField": "user_id",
-                        "foreignField": "_id",
-                        "as": "user"
-                    }
-                },
-                 {
-                    "$match": match
-                },
-                {
-                    "$addFields": {
-                        "_id": { "$toString": "$_id" },
-                        "user_comment":{
-                            "username": { "$arrayElemAt": ["$user.username", 0] },
-                            "full_name": { "$arrayElemAt": ["$user.full_name", 0] },
-                        }
-                    }
-                },
-                {
-                    "$project": {
-                        "deleted_flag": 0,
-                        "ebook_id":0,
-                        "user_id":0,
-                        "user":0,
-                    }
-                }
-            ])
-    ebook["comments"]= list(comments)
+    # comments = client.ebook_comment.aggregate([
+    #             {
+    #                 "$lookup": {
+    #                     "from": "user",
+    #                     "localField": "user_id",
+    #                     "foreignField": "_id",
+    #                     "as": "user"
+    #                 }
+    #             },
+    #              {
+    #                 "$match": match
+    #             },
+    #             {
+    #                 "$addFields": {
+    #                     "_id": { "$toString": "$_id" },
+    #                     "user_comment":{
+    #                         "username": { "$arrayElemAt": ["$user.username", 0] },
+    #                         "full_name": { "$arrayElemAt": ["$user.full_name", 0] },
+    #                     }
+    #                 }
+    #             },
+    #             {
+    #                 "$project": {
+    #                     "deleted_flag": 0,
+    #                     "ebook_id":0,
+    #                     "user_id":0,
+    #                     "user":0,
+    #                 }
+    #             }
+    #         ])
+    
+    # ebook["comments"]= list(comments)
 
     return ebook
 
