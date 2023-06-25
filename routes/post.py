@@ -371,7 +371,7 @@ async def create_post(post: Post, auth = Depends(validate_token)):
 
     post["_id"] = str(post_create.inserted_id)
     post["categories"] = categories
-    post["book_id"] = str(post["book_id"])
+    post["ebook_id"] = str(post["ebook_id"])
     del post['created_by'], post['updated_by']
 
     return post

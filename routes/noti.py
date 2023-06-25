@@ -59,11 +59,11 @@ async def list_noti(param:NotiQueryParams = Depends(), auth = Depends(validate_t
                         "_id": { "$toString": "$_id" },
                         "ebook":{
                             "_id": { "$toString": { "$arrayElemAt": [ "$ebook_docs._id", 0 ] } },
-                            "_name": { "$arrayElemAt": [ "$ebook_docs.name", 0 ] },
+                            "name": { "$arrayElemAt": [ "$ebook_docs.name", 0 ] },
                         },
                         "post":{
                             "_id": { "$toString": { "$arrayElemAt": [ "$post_docs._id", 0 ] } },
-                            "_name": { "$arrayElemAt": [ "$post_docs.name", 0 ] },
+                            "name": { "$arrayElemAt": [ "$post_docs.name", 0 ] },
                         },
                     }
                 },
@@ -110,7 +110,7 @@ async def list_noti(param:NotiQueryParams = Depends(), auth = Depends(validate_t
 
 
 @noti.get(  
-    path='/noti/{noti_id}',
+    path='/{noti_id}',
     name="Find nito by id",
     description="Find nito by id",
 )
@@ -141,11 +141,11 @@ async def find_noti(noti_id,auth = Depends(validate_token)):
                         "_id": { "$toString": "$_id" },
                         "ebook":{
                             "_id": { "$toString": { "$arrayElemAt": [ "$ebook_docs._id", 0 ] } },
-                            "_name": { "$arrayElemAt": [ "$ebook_docs.name", 0 ] },
+                            "name": { "$arrayElemAt": [ "$ebook_docs.name", 0 ] },
                         },
                         "post":{
                             "_id": { "$toString": { "$arrayElemAt": [ "$post_docs._id", 0 ] } },
-                            "_name": { "$arrayElemAt": [ "$post_docs.name", 0 ] },
+                            "name": { "$arrayElemAt": [ "$post_docs.name", 0 ] },
                         },
                     }
                 },
