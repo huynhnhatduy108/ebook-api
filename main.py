@@ -8,6 +8,7 @@ from routes.ebook import ebook as ebook_router
 from routes.category import category as category_router
 from routes.post import post as post_router
 from routes.common import common as common_router
+from routes.noti import noti as noti_router
 
 from routes.comment import comment as comment_router
 from starlette.middleware.cors import CORSMiddleware
@@ -31,5 +32,7 @@ app.include_router(category_router, tags=["C. Category"], prefix="/category")
 app.include_router(ebook_router, tags=["D. Ebook"], prefix="/ebook")
 app.include_router(post_router, tags=["E. Post"], prefix="/post")
 app.include_router(comment_router, tags=["F. Comment"], prefix="/comment")
+app.include_router(noti_router, tags=["H. Comment"], prefix="/noti")
+
 app.include_router(common_router, tags=["G. Common"], prefix="/common")
 
