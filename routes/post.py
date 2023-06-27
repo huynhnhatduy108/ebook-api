@@ -83,37 +83,37 @@ def get_info_by_slug_or_id(match={}):
     if not post:
         raise HTTPException(404, detail="Post not found!")
 
-    comments = client.post_comment.aggregate([
-                {
-                    "$lookup": {
-                        "from": "user",
-                        "localField": "user_id",
-                        "foreignField": "_id",
-                        "as": "user"
-                    }
-                },
-                 {
-                    "$match": match
-                },
-                {
-                    "$addFields": {
-                        "_id": { "$toString": "$_id" },
-                        "user_comment":{
-                            "username": { "$arrayElemAt": ["$user.username", 0] },
-                            "full_name": { "$arrayElemAt": ["$user.full_name", 0] },
-                        }
-                    }
-                },
-                {
-                    "$project": {
-                        "deleted_flag": 0,
-                        "post_id":0,
-                        "user_id":0,
-                        "user":0,
-                    }
-                }
-            ])
-    post["comments"]= list(comments)
+    # comments = client.post_comment.aggregate([
+    #             {
+    #                 "$lookup": {
+    #                     "from": "user",
+    #                     "localField": "user_id",
+    #                     "foreignField": "_id",
+    #                     "as": "user"
+    #                 }
+    #             },
+    #              {
+    #                 "$match": match
+    #             },
+    #             {
+    #                 "$addFields": {
+    #                     "_id": { "$toString": "$_id" },
+    #                     "user_comment":{
+    #                         "username": { "$arrayElemAt": ["$user.username", 0] },
+    #                         "full_name": { "$arrayElemAt": ["$user.full_name", 0] },
+    #                     }
+    #                 }
+    #             },
+    #             {
+    #                 "$project": {
+    #                     "deleted_flag": 0,
+    #                     "post_id":0,
+    #                     "user_id":0,
+    #                     "user":0,
+    #                 }
+    #             }
+    #         ])
+    # post["comments"]= list(comments)
 
     return post
 
@@ -253,34 +253,34 @@ async def list_posts_admin(param:PostQueryParams = Depends(), auth = Depends(val
         sort_condition=param.ordering
 
     pipline= [
-                # {
-                #     "$lookup": {
-                #         "from": "category",
-                #         "localField": "categories",
-                #         "foreignField": "_id",
-                #         "as": "categories"
-                #     }
-                # },
+                {
+                    "$lookup": {
+                        "from": "category",
+                        "localField": "categories",
+                        "foreignField": "_id",
+                        "as": "categories"
+                    }
+                },
                 {
                     "$match": match_condition if match_condition["$and"] else {}
                 },
-                # {
-                #     "$addFields": {
-                #         "_id": { "$toString": "$_id" },
-                #         "categories": {
-                #             "$map": {
-                #                 "input": "$categories",
-                #                 "as": "category",
-                #                 "in": {
-                #                     "_id": { "$toString": "$$category._id" },
-                #                     "name": "$$category.name",
-                #                     "name_en": "$$category.name_en",
-                #                     "description": "$$category.description"
-                #                 }
-                #             }
-                #         },
-                #     }
-                # },
+                {
+                    "$addFields": {
+                        "_id": { "$toString": "$_id" },
+                        "categories": {
+                            "$map": {
+                                "input": "$categories",
+                                "as": "category",
+                                "in": {
+                                    "_id": { "$toString": "$$category._id" },
+                                    "name": "$$category.name",
+                                    "name_en": "$$category.name_en",
+                                    "description": "$$category.description"
+                                }
+                            }
+                        },
+                    }
+                },
                 {
                     "$project": {
                         "deleted_flag": 0,

@@ -11,6 +11,7 @@ class Post(BaseModel):
     categories: list[str] =[]
     tags: list[str] =[]
     ebook_id: str = ""
+    views:int = 0
     is_public:bool= True
     published_at: str = datetime.now().strftime("%Y-%m-%d %X")
 
@@ -36,7 +37,7 @@ class Post(BaseModel):
 
     def dict(self, **kwargs):
         data = super().dict(**kwargs)
-        data["views"] = 0
+        data["views"] = self.views
         data['categories'] = self.categories
         data["deleted_flag"] = False
         return data
