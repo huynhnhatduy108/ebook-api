@@ -4,6 +4,8 @@ from models.comment import EbookComment, PostComment
 from config.db import client
 from bson import ObjectId
 from fastapi.responses import JSONResponse
+from schemas.comment import CommentQueryParams
+import math
 
 
 comment = APIRouter() 
@@ -13,8 +15,85 @@ comment = APIRouter()
     name="Get list comment ebook",
     description="Get list comment ebook",
 )
-async def list_comment_ebook():
-    pass
+async def list_comment_ebook(param:CommentQueryParams = Depends()):
+
+    match_condition = {"$and":[]}
+    sort_condition ={}
+    page = param.page
+    page_size = param.page_size
+    skip = page * page_size - page_size;
+
+    if "keyword" in dict(param):
+        if param.keyword:
+            keyword_scope = {
+                                "$or":[
+                                        {"ebook_name":{"$regex" : param.keyword, '$options': 'i'}},
+                                      ]       
+                            }
+            
+            match_condition["$and"].append(keyword_scope)
+
+
+    if "ordering" in dict(param):
+        sort_condition=param.ordering
+
+    
+    pipeline = [
+            {
+                "$group": {
+                    "_id": "$ebook_id",
+                    "count":{"$sum":1}
+                }    
+            },
+            {
+                "$lookup": {
+                        "from": "ebook",
+                        "localField": "_id",
+                        "foreignField": "_id",
+                        "as": "ebook_docs"
+                    }
+            },
+            {   "$addFields": {
+                    "ebook_name":{ "$arrayElemAt": ["$ebook_docs.name", 0] }
+                }
+            },
+             {
+                    "$match": match_condition if match_condition["$and"] else {}
+            },
+           {
+                "$project": {
+                        "_id": 0,
+                        "ebook_id": { "$toString": "$_id" },
+                        "count": 1,
+                        "ebook_name":1
+                    }
+            },
+            {
+                    "$sort":sort_condition
+            },
+            {
+                "$facet": {
+                        "data": [{"$skip": skip},{"$limit": page_size}],
+                        "count": [{"$count": "total_record"}]
+                    }
+            }
+        ]
+
+    result = client.ebook_comment.aggregate(pipeline)
+    result = list(result)
+    items = result[0]["data"]
+    total_record = 0
+    if result[0]["data"]:
+        total_record = result[0]["count"][0]["total_record"]
+    
+    data ={
+        "items": items,
+        "page":page,
+        "page_size":page_size,
+        "total_record":total_record,
+        "total_page":math.ceil(total_record / page_size)
+    }
+    return data
 
 
 @comment.get(  
@@ -129,6 +208,92 @@ async def detele_all_comment_ebook(ebook_id, auth: dict = Depends(validate_token
 
 
 # Post comment 
+@comment.get(  
+    path='/post',
+    name="Get list comment post",
+    description="Get list comment post",
+)
+async def list_comment_ebook(param:CommentQueryParams = Depends()):
+
+    match_condition = {"$and":[]}
+    sort_condition ={}
+    page = param.page
+    page_size = param.page_size
+    skip = page * page_size - page_size;
+
+    if "keyword" in dict(param):
+        if param.keyword:
+            keyword_scope = {
+                                "$or":[
+                                        {"post_name":{"$regex" : param.keyword, '$options': 'i'}},
+                                      ]       
+                            }
+            
+            match_condition["$and"].append(keyword_scope)
+
+
+    if "ordering" in dict(param):
+        sort_condition=param.ordering
+
+    
+    pipeline = [
+            {
+                "$group": {
+                    "_id": "$post_id",
+                    "count":{"$sum":1}
+                }    
+            },
+            {
+                "$lookup": {
+                        "from": "post",
+                        "localField": "_id",
+                        "foreignField": "_id",
+                        "as": "post_docs"
+                    }
+            },
+            {   "$addFields": {
+                    "ebook_name":{ "$arrayElemAt": ["$post_docs.name", 0] }
+                }
+            },
+             {
+                    "$match": match_condition if match_condition["$and"] else {}
+            },
+           {
+                "$project": {
+                        "_id": 0,
+                        "post_id": { "$toString": "$_id" },
+                        "count": 1,
+                        "post_name":1
+                    }
+            },
+            {
+                    "$sort":sort_condition
+            },
+            {
+                "$facet": {
+                        "data": [{"$skip": skip},{"$limit": page_size}],
+                        "count": [{"$count": "total_record"}]
+                    }
+            }
+        ]
+
+    result = client.post_comment.aggregate(pipeline)
+    result = list(result)
+    items = result[0]["data"]
+    total_record = 0
+    if result[0]["data"]:
+        total_record = result[0]["count"][0]["total_record"]
+    
+    data ={
+        "items": items,
+        "page":page,
+        "page_size":page_size,
+        "total_record":total_record,
+        "total_page":math.ceil(total_record / page_size)
+    }
+    return data
+
+
 @comment.get(  
     path='/post/{post_id}',
     name="Get list comment by post id",

@@ -33,8 +33,8 @@ class UserQueryParams(BaseModel):
             if value and isinstance(value, str):
                 value = string_to_ordering(value)
                 return value
-            return {"updated_at":1}
+            return {"created_at":1}
         except:
-            return {"updated_at":1}
+            return {"created_at":1}
 
 

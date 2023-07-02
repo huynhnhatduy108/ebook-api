@@ -2,7 +2,7 @@ from pydantic import BaseModel, validator
 from bson import ObjectId
 from functions.function import string_to_ordering
 
-class NotiQueryParams(BaseModel):
+class CommentQueryParams(BaseModel):
     keyword: str=None
     page: int= 1
     page_size: int = 10
