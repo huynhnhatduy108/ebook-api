@@ -14,3 +14,7 @@ class Category(BaseModel):
     def number_validator(cls, values):
         values["updated_at"] = datetime.now().strftime("%Y-%m-%d %X")
         return values
+    
+    def dict(self, **kwargs):
+        data = super().dict(**kwargs)
+        return data

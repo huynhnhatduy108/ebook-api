@@ -222,11 +222,14 @@ async def update_category(id, category: Category, auth: dict = Depends(validate_
         raise HTTPException(404, detail="Category not found!")
     
     category= category.dict()
+
     const = client.category.find_one_and_update({"_id":ObjectId(id)},{
         "$set":category
     }, return_document = ReturnDocument.AFTER)
 
     const["_id"] = str(const["_id"])
+    del const["posts"], const["ebooks"]
+    print("const", const)
 
     return const
 
