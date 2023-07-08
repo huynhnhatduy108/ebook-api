@@ -155,7 +155,7 @@ async def comment_ebook(ebook_id):
 
 
 @comment.post(  
-    path='/ebook/',
+    path='/ebook',
     name="Comment ebook",
     description="Comment ebook",
 )
@@ -252,7 +252,7 @@ async def list_comment_ebook(param:CommentQueryParams = Depends()):
                     }
             },
             {   "$addFields": {
-                    "ebook_name":{ "$arrayElemAt": ["$post_docs.name", 0] }
+                    "post_name":{ "$arrayElemAt": ["$post_docs.name", 0] }
                 }
             },
              {
@@ -353,7 +353,7 @@ async def comment_post(post_id):
 
 
 @comment.post(  
-    path='/post/',
+    path='/post',
     name="Comment post",
     description="Comment post",
 )

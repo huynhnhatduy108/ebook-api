@@ -26,6 +26,7 @@ class EbookComment(BaseModel):
 
     @root_validator
     def number_validator(cls, values):
+        values["created_at"] = datetime.now().strftime("%Y-%m-%d %X")
         values["updated_at"] = datetime.now().strftime("%Y-%m-%d %X")
         return values
 
@@ -56,6 +57,7 @@ class PostComment(BaseModel):
 
     @root_validator
     def number_validator(cls, values):
+        values["created_at"] = datetime.now().strftime("%Y-%m-%d %X")
         values["updated_at"] = datetime.now().strftime("%Y-%m-%d %X")
         return values
 
