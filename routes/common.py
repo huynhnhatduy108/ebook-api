@@ -16,93 +16,77 @@ async def get_info_dashboard(auth = Depends(validate_token)):
     categories = client.category.count_documents({})
 
     # count ebook commment
-    pipeline_ebook_comments = [
-            {
-                "$facet": {
-                    "parent": [{"$match": {"parent_id": ""}},{"$count": "total_record"}],
-                    "sub": [{"$match": {"parent_id": {"$ne": ""}}},{"$count": "total_record"}]
-                }
-            }
-        ]
-    ebook_comments = list(client.ebook_comment.aggregate(pipeline_ebook_comments))
+    ebook_comments = client.ebook_comment.count_documents({})
 
-    count_ebook_cmts_parent, count_ebook_cmts_sub = 0, 0
-    if ebook_comments[0]["parent"]:
-        count_ebook_cmts_parent = ebook_comments[0]["parent"][0]["total_record"]
-    if ebook_comments[0]["sub"]:
-        count_ebook_cmts_sub = ebook_comments[0]["sub"][0]["total_record"]
 
-    pipeline_post_comments = [
-            {
-                "$facet": {
-                    "parent": [{"$match": {"parent_id": ""}},{"$count": "total_record"}],
-                    "sub": [{"$match": {"parent_id": {"$ne": ""}}},{"$count": "total_record"}]
-                }
-            }
-        ]
-    post_comments = list(client.post_comment.aggregate(pipeline_post_comments)) 
-
-    count_post_cmts_parent, count_post_cmts_sub = 0, 0
-    if post_comments[0]["parent"]:
-        count_post_cmts_parent = post_comments[0]["parent"][0]["total_record"]
-    if post_comments[0]["sub"]:
-        count_post_cmts_sub = post_comments[0]["sub"][0]["total_record"]
+    # count post commment
+    post_comments = client.post_comment.count_documents({})
 
     # post
-    posts = client.post.count_documents({})
-    post_views = list(client.post_view.aggregate([
+    posts = list(client.post.aggregate([
                 {
                     "$group": {
                         "_id": 1,
-                        "total_views": { "$sum": "$views" }
+                        "views": { "$sum": "$views" },
+                        "count": { "$sum": 1 }
                     }
                 }
         ]))
     p_views =0
-    if len(post_views) > 0:
-         p_views = post_views[0]["total_views"]
-
+    p_count =0
+    if len(posts) > 0:
+        p_views = posts[0]["views"]
+        p_count = posts[0]["count"]
+        
     # users
     users = client.user.count_documents({})
 
+    # noti
+    noti = client.notification.count_documents({})
+
     # Ebook
-    ebooks = client.ebook.count_documents({})
+    ebooks = list(client.ebook.aggregate([
+                {
+                    "$group": {
+                        "_id": 1,
+                        "views": { "$sum": "$views" },
+                        "downloads": { "$sum": "$downloads" },
+                        "count": { "$sum": 1 }
+                    }
+                }
+        ]))
+    
+    b_views =0
+    b_downloads =0
+    b_count =0
 
-    e_views =0
-    # if len(ebook_views) > 0:
-    #      e_views = ebook_views[0]["total_views"]
-
-    e_downloads =0
+    if len(ebooks) > 0:
+         b_views = ebooks[0]["views"]
+         b_downloads = ebooks[0]["downloads"]
+         b_count = ebooks[0]["count"]
 
     dashboard = client.dashboard.find_one({"key":DASHBOARD})
 
     data ={
-        "user_count": users,
         "ebook_count": {
-            "count":ebooks,
-            "views":e_views,
-            "downloads":e_downloads,
-             "comment": {
-                "parent":count_ebook_cmts_parent,
-                "sub":count_ebook_cmts_sub,
-            },
+            "count":b_count,
+            "views":b_views,
+            "downloads":b_downloads,
+            "comments": ebook_comments,
         },
          "post_count": {
-            "count":posts,
+            "count":p_count,
             "views":p_views,
-             "comment": {
-                "parent":count_post_cmts_parent,
-                "sub":count_post_cmts_sub,
-            },
+            "comments":post_comments,
         },
+        "user_count": users,
         "category_count": categories,
+        "noti_count":noti,
         "views":dashboard["views"],
         "downloads":dashboard["downloads"],
         "online_reads":dashboard["online_reads"],
-
     }
    
-
     return data
 
 
