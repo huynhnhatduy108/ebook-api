@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from config.constant import DASHBOARD
+from config.constant import DASHBOARD 
 from functions.auth import generate_token, validate_token
 from config.db import client
 

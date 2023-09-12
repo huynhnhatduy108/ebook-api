@@ -201,9 +201,10 @@ async def info_category_by_id(id:str):
 async def create_category(category: Category, auth: dict = Depends(validate_token)):
 
     category = category.dict()
+    category["slug"] = gen_slug_radom_string(category["name"], 5)
     category["ebooks"]=[]
     category["posts"]=[]
-
+    
     category_create = client.category.insert_one(category)
     category["_id"] = str(category_create.inserted_id)
 
@@ -223,13 +224,16 @@ async def update_category(id, category: Category, auth: dict = Depends(validate_
     
     category= category.dict()
 
+    if category_exist["name"]!= category_exist["name"]:
+        category["slug"] = gen_slug_radom_string(category["name"], 5)
+
+
     const = client.category.find_one_and_update({"_id":ObjectId(id)},{
         "$set":category
     }, return_document = ReturnDocument.AFTER)
 
     const["_id"] = str(const["_id"])
     del const["posts"], const["ebooks"]
-    print("const", const)
 
     return const
 
