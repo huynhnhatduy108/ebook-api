@@ -37,8 +37,14 @@ async def register_user(user: UserRegisterDto):
     user.password = gen_hash_password(user.password)
     user = user.dict()
     client.user.insert_one(user)
+
+    data ={
+        "_id":str(user["_id"]),
+        "username":user["username"],
+        "email":user["email"],
+    }
     
-    return JSONResponse(content={"message": "Register user success!"}, status_code=201)
+    return JSONResponse(content=data, status_code=201)
 
 
 @auth.post(

@@ -71,7 +71,7 @@ def get_ebook_by_id_or_slug(match={}):
                             "full_name": { "$arrayElemAt": ["$created_by.full_name", 0] },
                         },
                         "rate.size": { "$size": "$ebook_rate" },
-                        "rate.average_rate": "$average_rate" ,
+                        "rate.average_rate": { "$avg": "$ebook_rate.rate" } ,
                         "img_url": {
                             "$cond": {
                                 "if": { "$eq": [ "$img_url", "" ] },
@@ -215,7 +215,8 @@ def get_ebook_by_id_or_slug(match={}):
     description="Get list ebook",
 )
 async def list_ebooks(param:EbookQueryParams = Depends()):
-    match_condition = {"$and":[{"is_public":True}]}
+    # match_condition = {"$and":[{"is_public":True}]}
+    match_condition = {"$and":[]}
     page = param.page
     page_size = param.page_size
     skip = page * page_size - page_size;
@@ -236,7 +237,7 @@ async def list_ebooks(param:EbookQueryParams = Depends()):
 
     if "categories" in dict(param):
         if param.categories:
-            cates_scope = {"categories._id":{"$in":param.categories} }
+            cates_scope = {"categories.slug":{"$in":param.categories} }
             match_condition["$and"].append(cates_scope)
 
     if "tags" in dict(param):
@@ -280,6 +281,7 @@ async def list_ebooks(param:EbookQueryParams = Depends()):
                     "$project": {
                         "_id":1, 
                         "name":1,
+                        "slug":1,
                         "img_url":1,
                         "average_rate":1,
                         "views":1,
@@ -587,19 +589,60 @@ async def rate_ebook(rate: EbookRate, auth: dict = Depends(validate_token)):
 
     if not ebook:
         raise HTTPException(404, detail="Ebook not found!")
-    
-    ebook_rate= client.ebook_rate.insert_one(rate)
 
-    rate["_id"] = str(ebook_rate.inserted_id)
+    check_rate = client.ebook_rate.find_one({"ebook_id":rate["ebook_id"], "user_id":ObjectId(auth)})
+
+    if check_rate:    
+        client.ebook_rate.update_one(
+                {"ebook_id": rate["ebook_id"], "user_id": ObjectId(auth)},
+                {"$set": {"rate": rate["rate"]}}
+        )
+    
+    rate["_id"] = str(check_rate["_id"]) if check_rate else str(client.ebook_rate.insert_one(rate).inserted_id)
     rate["ebook_id"] = str(rate["ebook_id"])
     del rate["user_id"]
 
     return rate
 
 @ebook.get(  
+    path='/get_rate/{ebook_id}',
+    name="Get ebook",
+    description="Get ebook",
+)
+async def get_rate(ebook_id):
+
+    ebooks = client.ebook_rate.aggregate([
+            {
+             "$match": {"ebook_id":ObjectId(ebook_id)}
+            },
+            {
+            "$group": {
+                "_id":"$ebook_id",
+                "size": { "$sum": 1 },  
+                "average_rate": { "$avg": "$rate" }, 
+                }
+            },
+            {
+                "$project": {
+                    "_id":0,
+                    "size":1,
+                    "average_rate":1,
+                }
+            }
+    ])
+
+    rate_ebook = next(ebooks, None)
+
+    if not rate_ebook:
+        raise HTTPException(404, detail="Ebook not found!")
+    
+    return rate_ebook
+
+
+@ebook.get(  
     path='/check_rate/{ebook_id}',
-    name="Rate ebook",
-    description="Rate ebook",
+    name="Check ebook",
+    description="Check ebook",
 )
 async def check_rate(ebook_id, auth: dict = Depends(validate_token)):
 

@@ -122,6 +122,7 @@ async def comment_ebook(ebook_id):
                     "user_comment": {
                         "username": {"$arrayElemAt": ["$user.username", 0]},
                         "full_name": {"$arrayElemAt": ["$user.full_name", 0]},
+                        "avatar_url": {"$arrayElemAt": ["$user.avatar_url", 0]},
                     },
                 }
             },
@@ -320,6 +321,7 @@ async def comment_post(post_id):
                     "user_comment": {
                         "username": {"$arrayElemAt": ["$user.username", 0]},
                         "full_name": {"$arrayElemAt": ["$user.full_name", 0]},
+                        "avatar_url": {"$arrayElemAt": ["$user.avatar_url", 0]},
                     },
                 }
             },

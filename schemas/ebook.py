@@ -32,7 +32,7 @@ class EbookQueryParams(BaseModel):
     def split_categories_string(cls, value):
         try:
             if value and isinstance(value, str):
-                value = [ObjectId(cate) for cate in value.split(",")]
+                value = [cate for cate in value.split(",")]
                 return value
             return value
         except:

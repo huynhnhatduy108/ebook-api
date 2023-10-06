@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from config.constant import FIREBASE_CLOUD_URL, POST_THUMBNAIL_PATH
 from functions.auth import generate_token, validate_token
 from functions.function import compare_old_to_new_list, gen_slug_radom_string
 from models.post import Post
@@ -52,6 +53,20 @@ def get_info_by_slug_or_id(match={}):
                                     "name": "$$category.name",
                                     "name_en": "$$category.name_en",
                                     "description": "$$category.description"
+                                }
+                            }
+                        },
+                         "thumbnail": {
+                            "$cond": {
+                                "if": { "$eq": [ "$thumbnail", "" ] },
+                                "then": "",
+                                "else": {
+                                "$concat": [
+                                    FIREBASE_CLOUD_URL,
+                                    POST_THUMBNAIL_PATH,
+                                    { "$ifNull": [ "$thumbnail", "" ] },
+                                    "?alt=media"
+                                ]
                                 }
                             }
                         },
@@ -180,6 +195,20 @@ async def list_posts(param:PostQueryParams = Depends()):
                                 }
                             }
                         },
+                         "thumbnail": {
+                            "$cond": {
+                                "if": { "$eq": [ "$thumbnail", "" ] },
+                                "then": "",
+                                "else": {
+                                "$concat": [
+                                    FIREBASE_CLOUD_URL,
+                                    POST_THUMBNAIL_PATH,
+                                    { "$ifNull": [ "$thumbnail", "" ] },
+                                    "?alt=media"
+                                ]
+                                }
+                            }
+                        }
                     }
                 },
                 {
@@ -279,6 +308,20 @@ async def list_posts_admin(param:PostQueryParams = Depends(), auth = Depends(val
                                 }
                             }
                         },
+                        "thumbnail": {
+                            "$cond": {
+                                "if": { "$eq": [ "$thumbnail", "" ] },
+                                "then": "",
+                                "else": {
+                                "$concat": [
+                                    FIREBASE_CLOUD_URL,
+                                    POST_THUMBNAIL_PATH,
+                                    { "$ifNull": [ "$thumbnail", "" ] },
+                                    "?alt=media"
+                                ]
+                                }
+                            }
+                        }
                     }
                 },
                 {
