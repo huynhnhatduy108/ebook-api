@@ -46,4 +46,16 @@ class PostQueryParams(BaseModel):
             return {"created_at":1}
         except:
             return {"created_at":1}
-    
+        
+
+class PostRelateQueryParams(BaseModel):
+    page_size: int = 15
+    post_id: str = None
+
+    @validator("post_id", pre=False)
+    def split_categories_string(cls, value):
+        try:
+            return ObjectId(value)
+        except:
+            return value
+

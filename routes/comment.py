@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from config.constant import FIREBASE_CLOUD_URL, USER_PATH, ATTRIBUTE_MEDIA
 from functions.auth import generate_token, validate_token
 from models.comment import EbookComment, PostComment
 from config.db import client
@@ -122,7 +123,20 @@ async def comment_ebook(ebook_id):
                     "user_comment": {
                         "username": {"$arrayElemAt": ["$user.username", 0]},
                         "full_name": {"$arrayElemAt": ["$user.full_name", 0]},
-                        "avatar_url": {"$arrayElemAt": ["$user.avatar_url", 0]},
+                        "avatar_url": {
+                            "$cond": {
+                                "if": { "$eq": [ {"$arrayElemAt": ["$user.avatar_url", 0]}, "" ] },
+                                "then": "",
+                                "else": {
+                                "$concat": [
+                                    FIREBASE_CLOUD_URL,
+                                    USER_PATH,
+                                    { "$ifNull": [ {"$arrayElemAt": ["$user.avatar_url", 0]}, "" ] },
+                                    ATTRIBUTE_MEDIA
+                                ]
+                                }
+                            }
+                        },
                     },
                 }
             },
@@ -321,7 +335,20 @@ async def comment_post(post_id):
                     "user_comment": {
                         "username": {"$arrayElemAt": ["$user.username", 0]},
                         "full_name": {"$arrayElemAt": ["$user.full_name", 0]},
-                        "avatar_url": {"$arrayElemAt": ["$user.avatar_url", 0]},
+                        "avatar_url": {
+                            "$cond": {
+                                "if": { "$eq": [ {"$arrayElemAt": ["$user.avatar_url", 0]}, "" ] },
+                                "then": "",
+                                "else": {
+                                "$concat": [
+                                    FIREBASE_CLOUD_URL,
+                                    USER_PATH,
+                                    { "$ifNull": [ {"$arrayElemAt": ["$user.avatar_url", 0]}, "" ] },
+                                    ATTRIBUTE_MEDIA
+                                ]
+                                }
+                            }
+                        },
                     },
                 }
             },

@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
-from config.constant import FIREBASE_CLOUD_URL, POST_THUMBNAIL_PATH
+from config.constant import FIREBASE_CLOUD_URL, POST_THUMBNAIL_PATH, ATTRIBUTE_MEDIA, USER_PATH
 from functions.auth import generate_token, validate_token
-from functions.function import compare_old_to_new_list, gen_slug_radom_string
+from functions.function import compare_old_to_new_list, gen_slug_radom_string, get_value_list
 from models.post import Post
 from config.db import client
-from schemas.post import PostQueryParams, serializeDict, serializeList
+from schemas.post import PostQueryParams, PostRelateQueryParams
 from bson import ObjectId
 from fastapi.responses import JSONResponse
 from pymongo import ReturnDocument
+import math
 
 post = APIRouter() 
 
@@ -65,7 +66,7 @@ def get_info_by_slug_or_id(match={}):
                                     FIREBASE_CLOUD_URL,
                                     POST_THUMBNAIL_PATH,
                                     { "$ifNull": [ "$thumbnail", "" ] },
-                                    "?alt=media"
+                                    ATTRIBUTE_MEDIA
                                 ]
                                 }
                             }
@@ -79,6 +80,20 @@ def get_info_by_slug_or_id(match={}):
                         "author":{
                             "username": { "$arrayElemAt": ["$created_by.username", 0] },
                             "full_name": { "$arrayElemAt": ["$created_by.full_name", 0] },
+                            "avatar_url": {
+                                "$cond": {
+                                    "if": { "$eq": [ {"$arrayElemAt": ["$created_by.avatar_url", 0]}, "" ] },
+                                    "then": "",
+                                    "else": {
+                                    "$concat": [
+                                        FIREBASE_CLOUD_URL,
+                                        USER_PATH,
+                                        { "$ifNull": [ {"$arrayElemAt": ["$created_by.avatar_url", 0]}, "" ] },
+                                        ATTRIBUTE_MEDIA
+                                    ]
+                                    }
+                                }
+                            },
                         }
                     }
                 },
@@ -204,7 +219,7 @@ async def list_posts(param:PostQueryParams = Depends()):
                                     FIREBASE_CLOUD_URL,
                                     POST_THUMBNAIL_PATH,
                                     { "$ifNull": [ "$thumbnail", "" ] },
-                                    "?alt=media"
+                                    ATTRIBUTE_MEDIA
                                 ]
                                 }
                             }
@@ -241,7 +256,8 @@ async def list_posts(param:PostQueryParams = Depends()):
         "items": items,
         "page":page,
         "page_size":page_size,
-        "total_record":total_record
+        "total_record":total_record,
+        "total_page":math.ceil(total_record / page_size)
     }
     return data
 
@@ -317,7 +333,7 @@ async def list_posts_admin(param:PostQueryParams = Depends(), auth = Depends(val
                                     FIREBASE_CLOUD_URL,
                                     POST_THUMBNAIL_PATH,
                                     { "$ifNull": [ "$thumbnail", "" ] },
-                                    "?alt=media"
+                                    ATTRIBUTE_MEDIA
                                 ]
                                 }
                             }
@@ -357,6 +373,162 @@ async def list_posts_admin(param:PostQueryParams = Depends(), auth = Depends(val
         "total_record":total_record
     }
     return data
+
+
+@post.get(
+    path='/relate',
+    name="List post relate",
+    description="Get list post relate",
+)
+async def list_posts_relate(param:PostRelateQueryParams = Depends()):
+    page_size = param.page_size
+    post_id = param.post_id
+
+    post = client.post.find_one({"_id":ObjectId(post_id)},{"categories":1})
+    cate_relate = post["categories"]
+
+    pipline= [
+                {
+                    "$lookup": {
+                        "from": "category",
+                        "localField": "categories",
+                        "foreignField": "_id",
+                        "as": "categories"
+                    }
+                },
+                {
+                    "$match": {"$and":[{"categories._id":{"$in":cate_relate}},{"_id": {"$ne": ObjectId(post_id)}}]}
+                },
+                {
+                    "$addFields": {
+                        "_id": { "$toString": "$_id" },
+                        "categories": {
+                            "$map": {
+                                "input": "$categories",
+                                "as": "category",
+                                "in": {
+                                    "_id": { "$toString": "$$category._id" },
+                                    "name": "$$category.name",
+                                    "name_en": "$$category.name_en",
+                                    "description": "$$category.description"
+                                }
+                            }
+                        },
+                        "thumbnail": {
+                            "$cond": {
+                                "if": { "$eq": [ "$thumbnail", "" ] },
+                                "then": "",
+                                "else": {
+                                "$concat": [
+                                    FIREBASE_CLOUD_URL,
+                                    POST_THUMBNAIL_PATH,
+                                    { "$ifNull": [ "$thumbnail", "" ] },
+                                    ATTRIBUTE_MEDIA
+                                ]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "$project": {
+                        "deleted_flag": 0,
+                        "created_by":0,
+                        "updated_by":0,
+                        "ebook_id":0,
+                    }
+                },
+                {
+                    "$sort":{"updated_at":1}
+                },
+                {
+                    "$facet": {
+                        "data": [{"$limit": page_size}],
+                    }
+                },
+            ]
+
+    post_relate = client.post.aggregate(pipline)
+    post_relate = list(post_relate)
+    items = post_relate[0]["data"]
+
+    if len(items) >=page_size:
+        return items
+
+    # post addd
+    pipline_add= [
+                {
+                    "$lookup": {
+                        "from": "category",
+                        "localField": "categories",
+                        "foreignField": "_id",
+                        "as": "categories"
+                    }
+                },
+                {
+                    "$match": {"$and":[{"_id": {"$ne": ObjectId(post_id)}}]}
+                },
+                {
+                    "$addFields": {
+                        "_id": { "$toString": "$_id" },
+                        "categories": {
+                            "$map": {
+                                "input": "$categories",
+                                "as": "category",
+                                "in": {
+                                    "_id": { "$toString": "$$category._id" },
+                                    "name": "$$category.name",
+                                    "name_en": "$$category.name_en",
+                                    "description": "$$category.description"
+                                }
+                            }
+                        },
+                        "thumbnail": {
+                            "$cond": {
+                                "if": { "$eq": [ "$thumbnail", "" ] },
+                                "then": "",
+                                "else": {
+                                "$concat": [
+                                    FIREBASE_CLOUD_URL,
+                                    POST_THUMBNAIL_PATH,
+                                    { "$ifNull": [ "$thumbnail", "" ] },
+                                    ATTRIBUTE_MEDIA
+                                ]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "$project": {
+                        "deleted_flag": 0,
+                        "created_by":0,
+                        "updated_by":0,
+                        "ebook_id":0,
+                    }
+                },
+                {
+                    "$sort":{"updated_at":1}
+                },
+                {
+                    "$facet": {
+                        "data": [{"$limit": page_size}],
+                    }
+                },
+            ]
+
+    post_add = client.post.aggregate(pipline_add)
+    post_add = list(post_add)
+    items_add = post_add[0]["data"]
+
+    list_relate = items if items else []
+    for post in items_add:
+        if post["_id"] not in get_value_list(list_relate,"_id"):
+            list_relate.append(post)  
+
+    list_relate = list_relate[0:page_size]
+
+    return list_relate
 
 
 @post.get(

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from config.constant import CATEGORY_PATH, FIREBASE_CLOUD_URL
+from config.constant import CATEGORY_PATH, FIREBASE_CLOUD_URL, ATTRIBUTE_MEDIA
 from functions.auth import generate_token, validate_token
 from functions.function import gen_slug_radom_string
 from models.category import Category
@@ -67,7 +67,7 @@ async def list_categories(param:CategoryQueryParams = Depends()):
                                         FIREBASE_CLOUD_URL,
                                         CATEGORY_PATH,
                                         "$thumbnail",
-                                        "?alt=media"
+                                        ATTRIBUTE_MEDIA
                                     ]
                                 }
                             }
@@ -133,7 +133,7 @@ async def list_categories_full():
                                         FIREBASE_CLOUD_URL,
                                         CATEGORY_PATH,
                                         "$thumbnail",
-                                        "?alt=media"
+                                        ATTRIBUTE_MEDIA
                                     ]
                                 }
                             }
@@ -175,7 +175,7 @@ async def info_category_by_id(id:str):
                                                             FIREBASE_CLOUD_URL,
                                                             CATEGORY_PATH,
                                                             "$thumbnail",
-                                                            "?alt=media"
+                                                            ATTRIBUTE_MEDIA
                                                         ]
                                                     }
                                                 }

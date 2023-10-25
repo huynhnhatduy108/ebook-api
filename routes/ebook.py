@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
-from config.constant import DASHBOARD, FIREBASE_CLOUD_URL
+from config.constant import DASHBOARD, FIREBASE_CLOUD_URL, ATTRIBUTE_MEDIA
 from crawl.crawl import crawl_data
 from crawl.lazada import lazada_crawl
 from functions.auth import generate_token, validate_token
-from functions.function import compare_old_to_new_list, gen_slug_radom_string
+from functions.function import compare_old_to_new_list, gen_slug_radom_string, get_value_list
 from models.ebook import Ebook, EbookRate
 from config.db import client
-from schemas.ebook import EbookQueryParams, serializeDict, serializeList
+from schemas.ebook import EbookQueryParams, EbookRelateQueryParams, serializeDict, serializeList
 from bson import ObjectId
 from fastapi.responses import JSONResponse
 from pymongo import ReturnDocument
@@ -81,7 +81,7 @@ def get_ebook_by_id_or_slug(match={}):
                                     FIREBASE_CLOUD_URL,
                                     BOOK_THUMBNAIL_PATH,
                                     { "$ifNull": [ "$img_url", "" ] },
-                                    "?alt=media"
+                                    ATTRIBUTE_MEDIA
                                 ]
                                 }
                             }
@@ -95,7 +95,7 @@ def get_ebook_by_id_or_slug(match={}):
                                     FIREBASE_CLOUD_URL,
                                     BOOK_PDF_PATH,
                                     { "$ifNull": [ "$pdf_url", "" ] },
-                                    "?alt=media"
+                                    ATTRIBUTE_MEDIA
                                 ]
                                 }
                             }
@@ -109,7 +109,7 @@ def get_ebook_by_id_or_slug(match={}):
                                     FIREBASE_CLOUD_URL,
                                     BOOK_EPUB_PATH,
                                     { "$ifNull": [ "$epub_url", "" ] },
-                                    "?alt=media"
+                                    ATTRIBUTE_MEDIA
                                 ]
                                 }
                             }
@@ -123,7 +123,7 @@ def get_ebook_by_id_or_slug(match={}):
                                     FIREBASE_CLOUD_URL,
                                     BOOK_MOBI_PATH,
                                     { "$ifNull": [ "$mobi_url", "" ] },
-                                    "?alt=media"
+                                    ATTRIBUTE_MEDIA
                                 ]
                                 }
                             }
@@ -137,7 +137,7 @@ def get_ebook_by_id_or_slug(match={}):
                                     FIREBASE_CLOUD_URL,
                                     BOOK_PRC_PATH,
                                     { "$ifNull": [ "$prc_url", "" ] },
-                                    "?alt=media"
+                                    ATTRIBUTE_MEDIA
                                 ]
                                 }
                             }
@@ -151,7 +151,7 @@ def get_ebook_by_id_or_slug(match={}):
                                     FIREBASE_CLOUD_URL,
                                     BOOK_AZW_PATH,
                                     { "$ifNull": [ "$azw_url", "" ] },
-                                    "?alt=media"
+                                    ATTRIBUTE_MEDIA
                                 ]
                                 }
                             }
@@ -270,7 +270,7 @@ async def list_ebooks(param:EbookQueryParams = Depends()):
                                     FIREBASE_CLOUD_URL,
                                     BOOK_THUMBNAIL_PATH,
                                     { "$ifNull": [ "$img_url", "" ] },
-                                    "?alt=media"
+                                    ATTRIBUTE_MEDIA
                                 ]
                                 }
                             }
@@ -317,6 +317,144 @@ async def list_ebooks(param:EbookQueryParams = Depends()):
 
     }
     return data
+
+@ebook.get(
+    path='/relate',
+    name="List ebook relate",
+    description="Get list ebook relate",
+)
+async def list_ebooks_relate(param:EbookRelateQueryParams = Depends()):
+    page_size = param.page_size
+    ebook_id = param.ebook_id
+
+    ebook = client.ebook.find_one({"_id":ObjectId(ebook_id)},{"categories":1})
+    cate_relate = ebook["categories"]
+
+    pipline= [
+                {
+                    "$lookup": {
+                        "from": "category",
+                        "localField": "categories",
+                        "foreignField": "_id",
+                        "as": "categories"
+                    }
+                },
+                {
+                    "$match": {"$and":[{"categories._id":{"$in":cate_relate}},{"_id": {"$ne": ObjectId(ebook_id)}}]}
+                },
+                {
+                    "$addFields": {
+                        "_id": { "$toString": "$_id" },
+                        "img_url": {
+                            "$cond": {
+                                "if": { "$eq": [ "$img_url", "" ] },
+                                "then": "",
+                                "else": {
+                                "$concat": [
+                                    FIREBASE_CLOUD_URL,
+                                    BOOK_THUMBNAIL_PATH,
+                                    { "$ifNull": [ "$img_url", "" ] },
+                                    ATTRIBUTE_MEDIA
+                                ]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "$project": {
+                        "_id":1, 
+                        "name":1,
+                        "slug":1,
+                        "img_url":1,
+                        "average_rate":1,
+                        "views":1,
+                        "downloads":1,
+                    }
+                },
+                {
+                    "$sort":{"updated_at":1}
+                },
+                {
+                    "$facet": {
+                        "data": [{"$limit": page_size}],
+                    }
+                },
+            ]
+
+    ebook_relate = client.ebook.aggregate(pipline)
+    ebook_relate = list(ebook_relate)
+    items = ebook_relate[0]["data"]
+
+    if len(items) >=page_size:
+        return items
+
+    # ebook addd
+    pipline_add= [
+                {
+                    "$lookup": {
+                        "from": "category",
+                        "localField": "categories",
+                        "foreignField": "_id",
+                        "as": "categories"
+                    }
+                },
+                {
+                    "$match": {"$and":[{"_id": {"$ne": ObjectId(ebook_id)}}]}
+                },
+                {
+                    "$addFields": {
+                        "_id": { "$toString": "$_id" },
+                        "img_url": {
+                            "$cond": {
+                                "if": { "$eq": [ "$img_url", "" ] },
+                                "then": "",
+                                "else": {
+                                "$concat": [
+                                    FIREBASE_CLOUD_URL,
+                                    BOOK_THUMBNAIL_PATH,
+                                    { "$ifNull": [ "$img_url", "" ] },
+                                    ATTRIBUTE_MEDIA
+                                ]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "$project": {
+                        "_id":1, 
+                        "name":1,
+                        "slug":1,
+                        "img_url":1,
+                        "average_rate":1,
+                        "views":1,
+                        "downloads":1,
+                    }
+                },
+                {
+                    "$sort":{"updated_at":1}
+                },
+                {
+                    "$facet": {
+                        "data": [{"$limit": page_size}],
+                    }
+                },
+            ]
+            
+
+    ebook_add = client.ebook.aggregate(pipline_add)
+    ebook_add = list(ebook_add)
+    items_add = ebook_add[0]["data"]
+
+    list_relate = items if items else []
+    for ebook in items_add:
+        if ebook["_id"] not in get_value_list(list_relate,"_id"):
+            list_relate.append(ebook)  
+
+    list_relate = list_relate[0:page_size]
+
+    return list_relate
 
 @ebook.get(
     path='/admin',
@@ -398,7 +536,7 @@ async def list_ebooks_admin(param:EbookQueryParams = Depends(),auth: dict = Depe
                                     FIREBASE_CLOUD_URL,
                                     BOOK_THUMBNAIL_PATH,
                                     { "$ifNull": [ "$img_url", "" ] },
-                                    "?alt=media"
+                                    ATTRIBUTE_MEDIA
                                 ]
                                 }
                             }

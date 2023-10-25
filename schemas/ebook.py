@@ -47,3 +47,14 @@ class EbookQueryParams(BaseModel):
             return {"updated_at":1}
         except:
             return {"updated_at":1}
+
+class EbookRelateQueryParams(BaseModel):
+    page_size: int = 15
+    ebook_id: str = None
+
+    @validator("ebook_id", pre=False)
+    def changeToObjectId(cls, value):
+        try:
+            return ObjectId(value)
+        except:
+            return value

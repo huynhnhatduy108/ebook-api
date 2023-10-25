@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from config.constant import DEFAULT_AVATAR_MAN, LOCAL_PROVIDER
+from config.constant import USER_PATH, DEFAULT_AVATAR_MAN, FIREBASE_CLOUD_URL, LOCAL_PROVIDER, ATTRIBUTE_MEDIA
 from functions.auth import generate_token, validate_token
 from config.db import client
 from schemas.auth import FacabookLogin, GoogleLogin, UserRegisterDto, UserLoginDto
@@ -71,7 +71,7 @@ async def login_user(user: UserLoginDto):
         "_id":str(user_exist["_id"]),
         "username":user_exist["username"],
         "full_name":user_exist["full_name"],
-        "avatar_url":user_exist.get("avatar_url", DEFAULT_AVATAR_MAN),
+        "avatar_url":FIREBASE_CLOUD_URL+USER_PATH+user_exist["avatar_url"]+ATTRIBUTE_MEDIA if user_exist["avatar_url"] else "",
         "email":user_exist["email"],
         "provider": user_exist.get("provider", LOCAL_PROVIDER),
         "access_token":generate_token(str(user_exist["_id"]))

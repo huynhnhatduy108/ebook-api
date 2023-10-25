@@ -56,7 +56,7 @@ class Ebook(BaseModel):
 
 class EbookRate(BaseModel):
     ebook_id: str =""
-    rate: int = 0
+    rate: float = 0
 
     created_at: str = datetime.now().strftime("%Y-%m-%d %X")
     updated_at: str = datetime.now().strftime("%Y-%m-%d %X")
